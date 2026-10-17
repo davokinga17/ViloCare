@@ -72,4 +72,5 @@ databases:
   - name: vilocare-db
     databaseName: vilocare
     user: vilocare_user
+    postgresMajorVersion: "18"
     plan: free
