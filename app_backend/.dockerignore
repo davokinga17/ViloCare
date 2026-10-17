@@ -1,0 +1,29 @@
+.git
+.github
+.idea
+.vscode
+.editorconfig
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Dependencies (installed inside container)
+node_modules/
+vendor/
+
+# Storage & logs
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/public/*
+
+# Testing & build artifacts
+.phpunit.result.cache
+tests/
+dist/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log

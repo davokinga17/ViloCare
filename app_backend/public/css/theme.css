@@ -1,0 +1,337 @@
+:root {
+  --bg-main: #eef4fb;
+  --bg-soft: #f8fbff;
+  --surface: #ffffff;
+  --surface-muted: #f4f8fc;
+  --ink: #1f2a37;
+  --muted: #617086;
+  --line: #d6e0ea;
+  --sidebar-start: #0f766e;
+  --sidebar-end: #0d9488;
+  --accent: #0d9488;
+  --accent-dark: #0b7f75;
+  --danger-soft: #ffecec;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Manrope", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 8% 9%, #d5e9ff 0%, transparent 28%),
+              radial-gradient(circle at 92% 12%, #ffe7cf 0%, transparent 32%),
+              linear-gradient(160deg, var(--bg-main) 0%, #f7fbff 100%);
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  width: 280px;
+  background: linear-gradient(170deg, var(--sidebar-start) 0%, var(--sidebar-end) 100%);
+  color: #ebfffc;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 10px 0 30px rgba(15, 118, 110, 0.2);
+  z-index: 1030;
+}
+
+.sidebar-head {
+  padding: 1.5rem 1.25rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.sidebar-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sidebar-logo-wrap {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+/* Logo is red-orange, so it sits on a white chip to stay readable on the teal sidebar */
+.sidebar-logo {
+  max-width: 100%;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0.3rem 0.6rem;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-logo img {
+  height: 40px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.sidebar-brand {
+  line-height: 1.15;
+}
+
+.sidebar-brand-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+}
+
+.sidebar-brand-sub {
+  margin: 0;
+  color: rgba(235, 255, 252, 0.8);
+  font-size: 0.78rem;
+}
+
+.sidebar-menu {
+  padding: 1rem 0.75rem 1.25rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin: 0.6rem 0 0.5rem;
+  padding: 0 0.6rem;
+  font-size: 0.72rem;
+  color: rgba(235, 255, 252, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: rgba(245, 255, 254, 0.9);
+  text-decoration: none !important;
+  padding: 0.68rem 0.78rem;
+  border-radius: 10px;
+  margin-bottom: 0.3rem;
+  font-size: 0.93rem;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.15s ease, color 0.2s ease;
+}
+
+.sidebar-link:hover,
+.sidebar-link:focus,
+.sidebar-link:active,
+.sidebar-menu a:hover,
+.sidebar-menu a:focus {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  transform: translateX(2px);
+  text-decoration: none !important;
+}
+
+.sidebar-link *,
+.sidebar-link:hover * {
+  text-decoration: none !important;
+}
+
+.sidebar-link.is-active,
+.sidebar-link.active {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  text-decoration: none !important;
+}
+
+.sidebar-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0.9rem 1rem 1.1rem;
+  font-size: 0.76rem;
+  color: rgba(235, 255, 252, 0.78);
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1.35rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(5px);
+  position: sticky;
+  top: 0;
+  z-index: 1010;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.topbar-title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.sidebar-toggle {
+  display: none;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  color: #2c3c52;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: 999px;
+  background: #ecf5ff;
+  border: 1px solid #d5e5f6;
+  color: #27425d;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.user-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #11a88f;
+  flex-shrink: 0;
+}
+
+.btn-logout {
+  border: 1px solid #efc9c3;
+  background: #fff4f2;
+  color: #b0402b;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 0.38rem 0.7rem;
+  border-radius: 10px;
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.btn-logout:hover {
+  background: #ffe9e5;
+  color: #952f1d;
+}
+
+.app-content {
+  padding: 1.4rem;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+.page-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(34, 63, 103, 0.06);
+}
+
+.card,
+.table,
+.alert {
+  border-radius: 12px;
+}
+
+.alert-success {
+  border-color: #b6e6ca;
+  background: #ecfff3;
+  color: #1c6f3e;
+}
+
+@media (max-width: 991px) {
+  .sidebar-toggle {
+    display: inline-grid;
+    place-items: center;
+  }
+  .app-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    max-width: 86vw;
+  }
+  body.sidebar-open .app-sidebar {
+    transform: translateX(0);
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 22, 38, 0);
+    pointer-events: none;
+    transition: background 0.25s ease;
+  }
+  body.sidebar-open .sidebar-backdrop {
+    background: rgba(10, 22, 38, 0.36);
+    pointer-events: auto;
+    z-index: 1020;
+  }
+  .app-content {
+    padding: 1rem;
+  }
+  .topbar-user {
+    gap: 0.5rem;
+  }
+  .user-chip {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

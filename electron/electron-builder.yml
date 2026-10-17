@@ -1,0 +1,51 @@
+appId: org.vilocare.desktop
+productName: ViLoCare
+copyright: ViLoCare
+afterPack: build/after-pack.js
+directories:
+  output: dist
+  buildResources: build
+files:
+  - src/**
+  - assets/**
+  - package.json
+# The Laravel app and PHP runtime ship outside app.asar so php.exe can read them.
+# No .env, database or secrets are staged: see scripts/prepare-app.js.
+extraResources:
+  - from: resources/app
+    to: app
+  - from: resources/php
+    to: php
+  - from: resources/router.php
+    to: router.php
+  - from: resources/env.template
+    to: env.template
+# Auto-update feed. THIS is the one place that names the releases repository: electron-builder bakes it into
+# resources/app-update.yml inside the installer (the installed app reads that file), and scripts/release.js reads
+# it too. The repository is PUBLIC and holds release files only, so the installed app needs no token.
+# Fill in owner and repo once (see README "Auto-update: first-time setup"). The GitHub token is NEVER written here.
+publish:
+  provider: github
+  owner: davokinga17
+  repo: vilocare-releases
+  releaseType: draft
+  private: false
+win:
+  signAndEditExecutable: false
+  # No spaces: GitHub rewrites spaces in asset names, which would make latest.yml point at a file that does not exist.
+  artifactName: ViLoCare-Setup-${version}.${ext}
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: true
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  include: build/installer.nsh
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ViLoCare

@@ -1,0 +1,38 @@
+@import 'tailwindcss' source(none);
+
+/*
+ * Utility classes are found ONLY in files under resources/, so the Docker build (which copies just package files,
+ * vite.config.js, resources/ and public/) produces exactly the same CSS as a local build. Nothing here reads
+ * vendor/, storage/framework/views or any other folder. Write every utility class in full in these files; never
+ * assemble class names from strings in PHP.
+ */
+@source '../views';
+@source '../js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Sidebar hover underline fix */
+.app-sidebar a,
+.app-sidebar a:hover,
+.app-sidebar a:focus,
+.sidebar-link,
+.sidebar-link:hover,
+.sidebar-link:focus,
+.sidebar-menu a,
+.sidebar-menu a:hover,
+.nav-item,
+.nav-item:hover {
+    text-decoration: none !important;
+}
+
+.app-sidebar a *,
+.app-sidebar a:hover *,
+.sidebar-link *,
+.sidebar-link:hover *,
+.nav-item *,
+.nav-item:hover * {
+    text-decoration: none !important;
+}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' file:; style-src 'self'; script-src 'self'">
+  <title>Create the first administrator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="admin">
+  <form class="card" id="form">
+    <img class="logo" src="../../assets/logo.png" alt="ViLoCare">
+    <h1>Create the first administrator on this computer</h1>
+    <p>Use the <strong>same email as your administrator account on the central server</strong>, so the two accounts are matched when this computer first syncs.</p>
+    <label for="name">Full name</label>
+    <input id="name" type="text" autocomplete="off" required>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="off" required>
+    <label for="password">Password (at least 10 characters)</label>
+    <input id="password" type="password" autocomplete="new-password" minlength="10" required>
+    <label for="confirmation">Confirm password</label>
+    <input id="confirmation" type="password" autocomplete="new-password" minlength="10" required>
+    <p id="msg" class="error"></p>
+    <button type="submit" id="submit">Create administrator</button>
+  </form>
+  <script src="page.js"></script>
+</body>
+</html>

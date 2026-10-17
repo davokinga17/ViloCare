@@ -1,0 +1,75 @@
+services:
+  - type: web
+    name: vilocare-backend
+    runtime: docker
+    dockerfilePath: ./app_backend/Dockerfile
+    dockerContext: ./app_backend
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: ViLoCare
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      # Enter by hand as base64:... (php artisan key:generate --show). Render's generateValue is not a valid Laravel key.
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vilocare-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      # Marks this installation as the central server (clinic computers default to "clinic").
+      - key: VILOCARE_ROLE
+        value: central
+      # Oldest desktop app version allowed to sync (e.g. 1.1.0). Leave empty for no enforcement; older apps then get HTTP 426.
+      - key: VILOCARE_MIN_CLIENT_VERSION
+        sync: false
+      # Shared secret clinics send as X-Sync-Token. Required: with no value the sync API answers 503.
+      - key: VILOCARE_SYNC_API_TOKEN
+        sync: false
+      # AI insights (optional): without a key the AI features stay off.
+      - key: AI_PROVIDER
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: RUN_SEEDING
+        value: "false"
+      # SMS gateway used by this server (africastalking or twilio). Set it to the same value as the clinic computers.
+      - key: SMS_PROVIDER
+        value: africastalking
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_SENDER
+        sync: false
+      - key: AFRICASTALKING_USERNAME
+        value: sandbox
+      - key: AFRICASTALKING_API_KEY
+        sync: false
+      - key: AFRICASTALKING_SENDER_ID
+        sync: false
+      - key: AFRICASTALKING_SANDBOX
+        value: "true"
+
+databases:
+  - name: vilocare-db
+    databaseName: vilocare
+    user: vilocare_user
+    plan: free

@@ -1,0 +1,74 @@
+# Dependencies
+/app_backend/node_modules/
+/app_backend/vendor/
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+/app_backend/.env
+/app_backend/.env.*
+!/app_backend/.env.example
+
+# Build files & caches
+/app_backend/.phpunit.result.cache
+/app_backend/.phpunit.cache/
+/app_backend/public/build/
+/app_backend/public/fonts-manifest.dev.json
+/app_backend/public/hot
+/app_backend/public/storage
+/app_backend/storage/*.key
+/app_backend/storage/logs/*.log
+/app_backend/storage/pail
+/app_backend/storage/framework/cache/data/*
+/app_backend/storage/framework/sessions/*
+/app_backend/storage/framework/testing/*
+/app_backend/storage/framework/views/*
+!/app_backend/storage/framework/cache/.gitignore
+!/app_backend/storage/framework/sessions/.gitignore
+!/app_backend/storage/framework/testing/.gitignore
+!/app_backend/storage/framework/views/.gitignore
+!/app_backend/storage/logs/.gitignore
+
+# IDE & Editor files
+.idea/
+.vscode/
+.fleet/
+.zed/
+.nova/
+.phpactor.json
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Electron shell
+/electron/node_modules/
+/electron/dist/
+/electron/resources/php/
+/electron/resources/app/
+/electron/build/vc_redist.x64.exe
+/electron/build/icon.png
+/electron/assets/
+/electron/.devdata/
+/electron/build/icon.ico
+/electron/dist-build*.log
+# Release credentials and local update-test files: never commit
+/electron/.env*
+/electron/*.token
+/electron/release.local.*
+/electron/update-test/
+*.token
+gh_token*
+.gh_token
