@@ -122,10 +122,15 @@ class ViralLoadEngine
 
     /**
      * Calculate initial due date for a patient who has no viral load test yet.
+     * Returns null when there is no ART start date: nothing can be scheduled from it.
      */
-    public function calculateInitialDueDate(Patient $patient, bool $alreadyOnArtWhenPregnant = false): array
+    public function calculateInitialDueDate(Patient $patient, bool $alreadyOnArtWhenPregnant = false): ?array
     {
-        $artStartDate = $patient->art_start_date ? Carbon::parse($patient->art_start_date) : now();
+        if (! $patient->art_start_date) {
+            return null;
+        }
+
+        $artStartDate = Carbon::parse($patient->art_start_date);
 
         // 1. If patient was already established on ART and becomes pregnant: immediate VL test indicated
         if ($patient->is_pregnant && $alreadyOnArtWhenPregnant) {

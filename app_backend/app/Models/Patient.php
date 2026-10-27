@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ViralLoadEngine;
 use App\Traits\Auditable;
 use App\Traits\HasUuidAndSync;
 use Carbon\Carbon;
@@ -172,6 +173,12 @@ class Patient extends Model
             return Carbon::parse($this->latestViralLoadResult->next_due_date);
         }
 
+        if (! $this->latestViralLoadResult) {
+            $initial = app(ViralLoadEngine::class)->calculateInitialDueDate($this);
+
+            return $initial ? Carbon::parse($initial['due_date']) : null;
+        }
+
         return null;
     }
 
@@ -183,6 +190,14 @@ class Patient extends Model
 
         if ($this->latestViralLoadResult?->algorithm_reason) {
             return $this->latestViralLoadResult->algorithm_reason;
+        }
+
+        if (! $this->latestViralLoadResult) {
+            $initial = app(ViralLoadEngine::class)->calculateInitialDueDate($this);
+
+            if ($initial) {
+                return $initial['reason'];
+            }
         }
 
         return 'Baseline VL test pending.';

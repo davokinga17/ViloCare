@@ -512,11 +512,12 @@ class ReportController extends Controller
         $duePmtct = $due->where('group', VlDueItem::GROUP_PMTCT)->values();
         $dueEac = $due->where('group', VlDueItem::GROUP_POST_EAC)->values();
         $dueResults = $due->where('group', VlDueItem::GROUP_ROUTINE)->values();
+        $dueBaseline = $due->where('group', VlDueItem::GROUP_BASELINE)->values();
 
         if ($request->input('export') === 'csv') {
             $filename = 'vilocare_due_services_report_'.date('Ymd_His').'.csv';
 
-            return response()->streamDownload(function () use ($duePmtct, $dueEac, $dueResults) {
+            return response()->streamDownload(function () use ($duePmtct, $dueEac, $dueResults, $dueBaseline) {
                 $handle = fopen('php://output', 'w');
                 fputcsv($handle, [
                     'Type',
@@ -535,10 +536,11 @@ class ReportController extends Controller
                     VlDueItem::GROUP_PMTCT => 'Immediate Viral Load Test (PMTCT)',
                     VlDueItem::GROUP_POST_EAC => 'Post-EAC Repeat Viral Load Test',
                     VlDueItem::GROUP_ROUTINE => 'Routine Viral Load Test',
+                    VlDueItem::GROUP_BASELINE => 'Baseline Viral Load Test',
                 ];
 
-                // Same order as on screen: PMTCT, post-EAC, routine. Each patient appears once.
-                foreach ([$duePmtct, $dueEac, $dueResults] as $group) {
+                // Same order as on screen: PMTCT, post-EAC, routine, baseline. Each patient appears once.
+                foreach ([$duePmtct, $dueEac, $dueResults, $dueBaseline] as $group) {
                     foreach ($group as $item) {
                         fputcsv($handle, [
                             $types[$item->group],
@@ -566,6 +568,7 @@ class ReportController extends Controller
         return view('reports.due-list', [
             'duePmtct' => $duePmtct,
             'dueResults' => $dueResults,
+            'dueBaseline' => $dueBaseline,
             'dueEac' => $dueEac,
             'states' => $states,
             'counties' => $counties,

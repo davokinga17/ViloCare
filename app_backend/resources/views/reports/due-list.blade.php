@@ -51,7 +51,7 @@
 
         <div>
             <span class="badge badge-info" style="font-size: 0.85rem;">
-                Total Due: {{ count($duePmtct) + count($dueResults) + count($dueEac) }} Patients
+                Total Due: {{ count($duePmtct) + count($dueResults) + count($dueEac) + count($dueBaseline) }} Patients
             </span>
         </div>
     </div>
@@ -167,6 +167,56 @@
         </table>
     </div>
 </div>
+
+<!-- Section 1b: Baseline (no viral load result yet, scheduled from ART start) -->
+@if(count($dueBaseline) > 0)
+<div class="card" style="margin-bottom: 24px; border-left: 4px solid #0ea5e9;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 class="card-title">🧬 Baseline Viral Load Tests Due ({{ count($dueBaseline) }})</h2>
+        <span class="badge badge-info">No result yet, scheduled from ART start</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Due Date</th>
+                    <th>Patient ART #</th>
+                    <th>Full Name</th>
+                    <th>Cohort</th>
+                    <th>Phone</th>
+                    <th>Active Regimen</th>
+                    <th>Rationale</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($dueBaseline as $item)
+                    <tr>
+                        <td>
+                            <strong style="color: #0369a1; font-size: 0.95rem;">{{ $item->next_due_date->format('Y-m-d') }}</strong>
+                            <div style="font-size: 0.72rem; {{ $item->isOverdue() ? 'color: #b91c1c; font-weight: 700;' : 'color: #64748b;' }}">{{ $item->dueLabel() }}</div>
+                        </td>
+                        <td><a href="{{ route('patients.show', $item->patient) }}" style="font-weight: 700; color: var(--primary);">{{ $item->patient->art_number }}</a></td>
+                        <td><strong style="color: #0f172a;">{{ $item->patient->full_name }}</strong></td>
+                        <td>
+                            {{ $item->patient->ageCohort() }}
+                            @if($item->patient->is_pregnant)
+                                <div><span class="badge" style="background: #fff1f2; color: #e11d48; font-size: 0.7rem;">Pregnant</span></div>
+                            @endif
+                        </td>
+                        <td>{{ $item->patient->phone ?? 'N/A' }}</td>
+                        <td><span class="badge badge-secondary">{{ $item->patient->activeRegimen?->regimen_name ?? 'N/A' }}</span></td>
+                        <td style="font-size: 0.8rem; color: #475569;">{{ $item->algorithm_reason }}</td>
+                        <td style="text-align: right;">
+                            <a href="{{ route('samples.create', ['patient_id' => $item->patient->id]) }}" class="btn btn-sm btn-primary" style="background-color: #3b82f6;">🧪 Draw Sample</a>
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 
 <!-- Section 2: Post-EAC Repeat Tests Due List -->
 <div class="card" style="border-left: 4px solid #f59e0b;">

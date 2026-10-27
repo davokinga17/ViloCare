@@ -289,11 +289,13 @@ class DashboardAndReportingTest extends TestCase
 
     public function test_dashboard_cascading_state_and_county_filters(): void
     {
-        // Create due VL for Grace so she appears in the dashboard due list
+        // Create due VL for Grace so she appears in the dashboard due list.
+        // Sample/result dates are relative to now() so they stay inside the chart's fixed 6-month window
+        // (the VL activity chart is only drawn when that window has data).
         ViralLoadResult::create([
             'patient_id' => $this->patient->id,
-            'sample_date' => '2026-01-10',
-            'result_date' => '2026-01-12',
+            'sample_date' => now()->subDays(2)->toDateString(),
+            'result_date' => now()->toDateString(),
             'result_value' => 40,
             'is_suppressed' => true,
             'next_due_date' => now()->addDays(10)->toDateString(),

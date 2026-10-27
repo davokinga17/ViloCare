@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\EacEpisode;
 use App\Models\Patient;
 use App\Models\ViralLoadResult;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -15,8 +16,11 @@ use Illuminate\Support\Collection;
  *
  * Rules
  *  - One row per PATIENT, never per result.
- *  - A patient qualifies under up to three groups; they are listed once, in the highest priority
- *    group: immediate PMTCT, then post-EAC repeat VL, then routine.
+ *  - A patient qualifies under up to four groups; they are listed once, in the highest priority
+ *    group: immediate PMTCT, then post-EAC repeat VL, then routine, then baseline.
+ *  - Baseline: patient with no VL result at all and an ART start date; due date from
+ *    ViralLoadEngine::calculateInitialDueDate() (ART start + 3 months if newly initiated pregnant,
+ *    else + 6 months). A past date stays the original date (overdue).
  *  - Routine: only the patient's LATEST result counts (latest sample_date, then created_at); its
  *    next_due_date (set by ViralLoadEngine) must be <= today + look-ahead. Older results are ignored,
  *    and a missed due date stays the original date (the patient simply shows as overdue).
@@ -87,6 +91,37 @@ class VlDueService
                 (string) $result->algorithm_reason,
                 null,
                 $result,
+            );
+        }
+
+        // Baseline: no viral load result at all. Computed on the fly from the ART start date
+        // (never stored), so it follows edits to the date, sync and imports.
+        $engine = app(ViralLoadEngine::class);
+        $baseline = Patient::with(['facility', 'activeRegimen'])
+            ->whereDoesntHave('viralLoadResults')
+            ->whereNotNull('art_start_date');
+        $this->filterPatientLocation($baseline, $location);
+
+        foreach ($baseline->get() as $patient) {
+            if (isset($items[$patient->id])) {
+                continue;
+            }
+
+            $initial = $engine->calculateInitialDueDate($patient);
+            if (! $initial) {
+                continue;
+            }
+
+            $dueDate = Carbon::parse($initial['due_date'])->startOfDay();
+            if ($dueDate->toDateString() >= $before) {
+                continue;
+            }
+
+            $items[$patient->id] = new VlDueItem(
+                $patient,
+                VlDueItem::GROUP_BASELINE,
+                $dueDate,
+                $initial['reason'],
             );
         }
 

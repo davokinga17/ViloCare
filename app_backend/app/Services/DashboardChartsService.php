@@ -153,6 +153,15 @@ class DashboardChartsService
             }
         }
 
+        // Baseline patients (no result yet) have no stored due date: place the ones whose computed
+        // date fell in an earlier month of the window, so overdue first tests show where they were due.
+        foreach ($dueItems as $item) {
+            $key = $item->next_due_date->format('Y-m');
+            if ($item->group === VlDueItem::GROUP_BASELINE && $key !== $currentKey && isset($due[$key])) {
+                $due[$key][$item->patient->id] = true;
+            }
+        }
+
         // (b) Samples collected and (c) results tested: grouped in PHP over the same range.
         $collected = array_fill_keys(array_keys($months), 0);
         $samples = SampleCollection::query()->toBase()

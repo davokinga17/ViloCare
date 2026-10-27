@@ -18,11 +18,14 @@ class VlDueItem
 
     public const GROUP_ROUTINE = 'routine';
 
+    public const GROUP_BASELINE = 'baseline';
+
     /** Lower number wins when a patient qualifies under several groups. */
     public const PRIORITY = [
         self::GROUP_PMTCT => 1,
         self::GROUP_POST_EAC => 2,
         self::GROUP_ROUTINE => 3,
+        self::GROUP_BASELINE => 4,
     ];
 
     public function __construct(
@@ -61,6 +64,7 @@ class VlDueItem
         return match ($this->group) {
             self::GROUP_PMTCT => 'Immediate (PMTCT)',
             self::GROUP_POST_EAC => 'Post-EAC repeat',
+            self::GROUP_BASELINE => 'Baseline (first VL)',
             default => 'Routine',
         };
     }
