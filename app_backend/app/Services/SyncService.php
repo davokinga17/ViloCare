@@ -8,6 +8,8 @@ use App\Exceptions\UnresolvedLocationException;
 use App\Models\AuditLog;
 use App\Models\NotificationLog;
 use App\Models\SyncConflict;
+use App\Support\DeviceIdentity;
+use App\Support\SmsRole;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
@@ -59,7 +61,7 @@ class SyncService
         $this->state = new SyncStateStore();
         $this->remoteUrl = rtrim((string) config('sync.remote_url', ''), '/');
         $this->apiToken = (string) config('sync.api_token', '');
-        $this->deviceId = config('sync.device_id', 'clinic-desktop-01');
+        $this->deviceId = DeviceIdentity::resolve($this->state);
         $this->batchSize = (int) config('sync.batch_size', 100);
         $this->syncedModels = config('sync.synced_models', [
             'states' => \App\Models\State::class,
@@ -92,11 +94,45 @@ class SyncService
     /**
      * Server side: remembers that a clinic just talked to this central server (shown read-only in Settings).
      */
-    public function recordClinicContact(mixed $deviceId): void
+    public function recordClinicContact(mixed $deviceId, mixed $appVersion = null): void
     {
         $this->state->put('last_clinic_sync_at', now()->toIso8601String());
         if (is_string($deviceId) && $deviceId !== '') {
-            $this->state->put('last_clinic_device', mb_substr($deviceId, 0, 120));
+            $deviceId = mb_substr($deviceId, 0, 120);
+            $this->state->put('last_clinic_device', $deviceId);
+
+            // Heartbeat per device: every sync request a clinic sends (even with nothing to upload) lands here.
+            $version = is_string($appVersion) && $appVersion !== '' ? mb_substr($appVersion, 0, 40) : null;
+            try {
+                $row = ['last_contact_at' => now()];
+                if ($version !== null) {
+                    $row['app_version'] = $version;
+                }
+                if (DB::table('clinic_devices')->where('device_id', $deviceId)->update($row) === 0) {
+                    DB::table('clinic_devices')->insertOrIgnore($row + ['device_id' => $deviceId, 'created_at' => now()]);
+                }
+            } catch (\Throwable $e) {
+                // The table is missing until the migration runs; the single "last clinic" fallback above still works.
+            }
+        }
+    }
+
+    /**
+     * Central server: when each clinic computer last contacted it, newest first.
+     *
+     * @return array<int, array{device_id: string, app_version: ?string, last_contact_at: ?Carbon}>
+     */
+    public function clinicDevices(): array
+    {
+        try {
+            return DB::table('clinic_devices')->orderByDesc('last_contact_at')->get()
+                ->map(fn ($r) => [
+                    'device_id' => $r->device_id,
+                    'app_version' => $r->app_version,
+                    'last_contact_at' => $r->last_contact_at ? Carbon::parse($r->last_contact_at) : null,
+                ])->all();
+        } catch (\Throwable $e) {
+            return [];
         }
     }
 
@@ -106,6 +142,12 @@ class SyncService
     public function lastClinicContact(): array
     {
         return ['at' => $this->state->getTime('last_clinic_sync_at'), 'device' => $this->state->get('last_clinic_device')];
+    }
+
+    /** The unique ID of this installation (see DeviceIdentity). */
+    public function deviceId(): string
+    {
+        return $this->deviceId;
     }
 
     /**
@@ -155,7 +197,7 @@ class SyncService
      */
     protected function clientHeaders(?string $token = null): array
     {
-        $headers = ['X-Sync-Token' => $token ?? $this->apiToken, 'Accept' => 'application/json'];
+        $headers = ['X-Sync-Token' => $token ?? $this->apiToken, 'Accept' => 'application/json', 'X-Device-Id' => $this->deviceId];
         if ($version = config('sync.client_version')) {
             $headers['X-Client-Version'] = (string) $version;
         }
@@ -1785,6 +1827,11 @@ class SyncService
      */
     public function flushOfflineSmsQueue(): int
     {
+        // Several clinic computers hold copies of the same queued messages: only a computer that is allowed to send SMS dispatches them.
+        if (! SmsRole::enabled()) {
+            return 0;
+        }
+
         $queuedLogs = NotificationLog::where('status', 'queued')->get();
         if ($queuedLogs->isEmpty()) {
             return 0;
@@ -1794,8 +1841,9 @@ class SyncService
         $count = 0;
 
         foreach ($queuedLogs as $log) {
-            $smsService->dispatchToProvider($log);
-            $count++;
+            if ($smsService->dispatchQueued($log) !== null) {
+                $count++;
+            }
         }
 
         return $count;
@@ -1864,6 +1912,7 @@ class SyncService
             'app_version' => config('sync.client_version'),
             'update_required' => $this->updateRequired(),
             'device_id' => $this->deviceId,
+            'clinic_devices' => $this->isCentral() ? $this->clinicDevices() : [],
             'remote_url' => $this->remoteUrl,
             'ssl_status' => [
                 'ca_bundle_path' => $caBundle,

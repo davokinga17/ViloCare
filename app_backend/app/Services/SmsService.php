@@ -12,6 +12,7 @@ use App\Services\Sms\SmsProviderFactory;
 use App\Services\Sms\SmsProviderInterface;
 use App\Support\PhoneNumber;
 use App\Support\SmsSegments;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
@@ -130,6 +131,29 @@ class SmsService
     /**
      * Hands a notification record to the selected SMS provider and records the outcome.
      */
+    /**
+     * Dispatches a queued message under a per-message lock, so two overlapping queue runs (or a queue run and a
+     * clinic sync) never send the same message twice. Returns null when another run holds it or it is no longer queued.
+     */
+    public function dispatchQueued(NotificationLog $notification): ?NotificationLog
+    {
+        $lock = Cache::lock('sms-dispatch:'.$notification->id, 300);
+        if (! $lock->get()) {
+            return null;
+        }
+
+        try {
+            $fresh = $notification->fresh();
+            if (! $fresh || $fresh->status !== 'queued') {
+                return null;
+            }
+
+            return $this->dispatchToProvider($fresh);
+        } finally {
+            $lock->release();
+        }
+    }
+
     public function dispatchToProvider(NotificationLog $notification): NotificationLog
     {
         // Guard against sending unvalidated or privacy-violating content

@@ -497,6 +497,7 @@ async function startup() {
 
     log(`version guard: ok (app ${app.getVersion()}, data last used by ${stored || 'nothing yet'})`);
     const firstRun = cfg.ensureEnvFile() || !fs.existsSync(p.dbFile);
+    log(`device id: ${cfg.ensureDeviceId()}`);
     if (cfg.needsSetup() && !cfg.state.read().setupSkipped) {
       await setupPrompt();
       showStart('splash.html', { status: 'Preparing…' });

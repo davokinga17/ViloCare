@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\NotificationLog;
 use App\Services\SmsService;
+use App\Support\SmsRole;
 use Illuminate\Console\Command;
 
 class ProcessSmsQueueCommand extends Command
@@ -27,8 +28,14 @@ class ProcessSmsQueueCommand extends Command
      */
     public function handle(SmsService $smsService): int
     {
+        if (! SmsRole::enabled()) {
+            $this->info('This computer does not send SMS (only the central server does, or a clinic with "This computer sends SMS reminders" turned on in Settings). Nothing sent.');
+
+            return self::SUCCESS;
+        }
+
         $limit = (int) $this->option('limit');
-        
+
         $queuedLogs = NotificationLog::where('status', 'queued')
             ->orderBy('created_at', 'asc')
             ->limit($limit)
@@ -47,9 +54,11 @@ class ProcessSmsQueueCommand extends Command
         foreach ($queuedLogs as $log) {
             $this->line("Dispatching message #{$log->id} to {$log->recipient_phone}...");
             
-            $result = $smsService->dispatchToProvider($log);
+            $result = $smsService->dispatchQueued($log);
 
-            if ($result->isSent()) {
+            if ($result === null) {
+                $this->line('  [Skip] already being sent by another run.');
+            } elseif ($result->isSent()) {
                 $this->info("  [✓] Sent successfully (Provider ID: {$result->provider_message_id})");
                 $sentCount++;
             } else {

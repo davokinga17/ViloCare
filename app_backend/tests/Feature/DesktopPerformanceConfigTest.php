@@ -163,13 +163,14 @@ class DesktopPerformanceConfigTest extends TestCase
         $this->assertStringContainsString('php.opcacheSelfCheck(port).then(log', $main);
     }
 
-    public function test_desktop_version_is_1_1_1_in_package_and_lockfile(): void
+    public function test_desktop_version_is_1_1_2_in_package_and_lockfile(): void
     {
         $package = json_decode($this->electronFile('package.json'), true);
         $lock = json_decode($this->electronFile('package-lock.json'), true);
 
-        $this->assertSame('1.1.1', $package['version']);
-        $this->assertSame('1.1.1', $lock['version']);
+        $this->assertSame('1.1.2', $package['version']);
+        $this->assertSame('1.1.2', $lock['version']);
+        $this->assertSame('1.1.2', $lock['packages']['']['version']);
     }
 
     public function test_installer_staging_never_packs_sqlite_files_or_their_copies(): void

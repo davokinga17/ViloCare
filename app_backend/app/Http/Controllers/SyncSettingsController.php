@@ -39,6 +39,8 @@ class SyncSettingsController extends Controller
             'hasToken' => $token !== null,
             'maskedToken' => $token !== null ? str_repeat('•', 12) : null,
             'configured' => $this->syncService->isConfigured(),
+            'deviceId' => $this->syncService->deviceId(),
+            'sendsSms' => (bool) config('sync.sends_sms', false),
         ]);
     }
 

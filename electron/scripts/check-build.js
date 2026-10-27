@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
 const policy = require('../src/updater-policy');
+const phpMin = require('./php-min');
 
 const root = path.join(__dirname, '..');
 const dist = path.join(root, 'dist');
@@ -55,6 +56,7 @@ function scanForSecrets(dirs, extraFiles = []) {
 function check() {
   const problems = [];
   const warnings = [];
+  const result = {};
   const note = (list, msg) => list.push(msg);
 
   const installerName = `ViLoCare-Setup-${version}.exe`;
@@ -76,6 +78,20 @@ function check() {
     if (entry.size !== size) note(problems, `${ymlName} lists ${entry.size} bytes, the installer has ${size}`);
     const sha = crypto.createHash('sha512').update(fs.readFileSync(installer)).digest('base64');
     if (entry.sha512 !== sha) note(problems, `${ymlName} sha512 does not match the installer file`);
+  }
+
+  // The PHP inside the finished installer, judged by running that exact binary.
+  const packedPhp = path.join(dist, 'win-unpacked', 'resources', 'php', 'php.exe');
+  if (!fs.existsSync(packedPhp)) {
+    note(problems, 'win-unpacked/resources/php/php.exe is missing');
+  } else {
+    try {
+      const v = phpMin.binaryVersion(packedPhp);
+      if (phpMin.isBelow(v)) note(problems, `the installer bundles PHP ${v}, below the required ${phpMin.MIN_PHP} (PHP2Shell fix)`);
+      else result.phpVersion = v;
+    } catch (e) {
+      note(problems, `could not run the bundled php.exe: ${e.message}`);
+    }
   }
 
   const appUpdate = path.join(dist, 'win-unpacked', 'resources', 'app-update.yml');
@@ -101,7 +117,7 @@ function check() {
     }
   }
 
-  return { problems, warnings, scanned, installerName, ymlName };
+  return { problems, warnings, scanned, installerName, ymlName, phpVersion: result.phpVersion };
 }
 
 if (require.main === module) {
@@ -112,6 +128,7 @@ if (require.main === module) {
     for (const p of r.problems) console.error(`FAIL: ${p}`);
     process.exit(1);
   }
+  console.log(`Bundled PHP ${r.phpVersion} (minimum ${phpMin.MIN_PHP}): OK`);
   console.log(`OK: ${r.installerName}, ${r.installerName}.blockmap and ${r.ymlName} are present and consistent; no secrets found.`);
 }
 

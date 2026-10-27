@@ -1,6 +1,9 @@
 # ==========================================
 # Stage 1: Build Frontend Assets (Vite)
 # ==========================================
+# Node is build-only (Vite); it never ships in the runtime image. The floating 22-alpine tag
+# tracks the latest 22.x patch (needs >= 22.23.4). Deploy with "Clear build cache & deploy"
+# so Render does not reuse a stale cached layer. Could not verify an exact 22.23.x tag when this was written.
 FROM node:22-alpine AS node_builder
 
 WORKDIR /app
@@ -19,10 +22,21 @@ RUN npm run build
 # ==========================================
 # Stage 2: Production PHP + Nginx Runtime
 # ==========================================
+# Security: PHP2Shell (CVE-2026-109618, CVE-2026-109619) is fixed in PHP 8.3.36. The exact tag
+# php:8.3.36-fpm-alpine could not be verified on Docker Hub when this was written, so the floating
+# 8.3 tag is used and the build below FAILS if it resolves to < 8.3.36. The deploy MUST use
+# "Clear build cache & deploy" in Render, otherwise a cached older base layer may be reused.
 FROM php:8.3-fpm-alpine
 
 LABEL maintainer="ViLoCare Team"
 LABEL description="ViLoCare Backend Container for Render"
+
+# Refresh Alpine packages first so CA certificates are current (eMudhra certificate advisory).
+RUN apk upgrade --no-cache
+
+# Show the deployed PHP version in the Render build log and refuse to build anything below 8.3.36.
+RUN php -v \
+    && php -r 'if (version_compare(PHP_VERSION, "8.3.36", "<")) { fwrite(STDERR, "PHP " . PHP_VERSION . " is below 8.3.36 (PHP2Shell fix). Use Clear build cache & deploy.\n"); exit(1); }'
 
 # Install system dependencies and build libraries
 RUN apk add --no-cache \

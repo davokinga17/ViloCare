@@ -34,6 +34,10 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        // Clinic computers do not send SMS by default (see App\Support\SmsRole). Tests that exercise sending assume a
+        // computer that does; MultiComputerSafetyTest turns it off again to test the default.
+        config(['sync.sends_sms' => true]);
+
         // No test may ever spawn a real `php artisan vilocare:sync` process.
         $test = $this;
         $this->app->instance(BackgroundSyncLauncher::class, new class($test) extends BackgroundSyncLauncher

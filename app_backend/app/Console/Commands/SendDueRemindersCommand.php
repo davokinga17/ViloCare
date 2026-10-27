@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\DueReminderService;
+use App\Support\SmsRole;
 use Illuminate\Console\Command;
 
 class SendDueRemindersCommand extends Command
@@ -28,6 +29,12 @@ class SendDueRemindersCommand extends Command
      */
     public function handle(DueReminderService $reminders): int
     {
+        if (! SmsRole::enabled()) {
+            $this->info('This computer does not send SMS reminders (only the central server does, or a clinic with "This computer sends SMS reminders" turned on in Settings). Nothing sent.');
+
+            return self::SUCCESS;
+        }
+
         $days = (int) $this->option('days');
         $dryRun = (bool) $this->option('dry-run');
         $today = today()->toDateString();
@@ -62,7 +69,12 @@ class SendDueRemindersCommand extends Command
             if ($dryRun) {
                 $this->line("  [Would send] {$patient->art_number} {$patient->first_name} ({$this->maskPhone($patient->phone)}) due {$due} [{$item->groupLabel()}]");
             } else {
-                $reminders->send($item);
+                if ($reminders->send($item) === null) {
+                    $this->line("  [Skip] {$patient->art_number}: already claimed by another run.");
+                    $skipped++;
+
+                    continue;
+                }
                 $this->info("  [✓] Dispatched discreet reminder to {$patient->first_name} ({$patient->phone}) for {$due}");
             }
             $dispatched++;

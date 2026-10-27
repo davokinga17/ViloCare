@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\NotificationLog;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Decides who gets a "health review is due" SMS and sends it, one reminder per patient.
@@ -66,10 +67,46 @@ class DueReminderService
             ->exists();
     }
 
-    /** Sends (or queues when offline) the reminder. Caller is responsible for calling skipReason() first. */
+    /**
+     * Sends (or queues when offline) the reminder. Caller is responsible for calling skipReason() first.
+     *
+     * skipReason() is only a read, so two runs at the same moment can both pass it. The real guard is the atomic
+     * claim below: one reminder per patient per due date, decided by a unique key. Returns null when another run
+     * already holds the claim (nothing is sent).
+     */
     public function send(VlDueItem $item): ?NotificationLog
     {
-        return $this->sms->sendDueReminderNotification($item->patient, $item->next_due_date);
+        $patientId = $item->patient->id;
+        $dueDate = $item->next_due_date->toDateString();
+
+        $claimed = DB::table('sms_reminder_claims')->insertOrIgnore([
+            'patient_id' => $patientId,
+            'due_date' => $dueDate,
+            'claimed_at' => now(),
+        ]);
+
+        if ($claimed === 0) {
+            return null;
+        }
+
+        try {
+            $log = $this->sms->sendDueReminderNotification($item->patient, $item->next_due_date);
+        } catch (\Throwable $e) {
+            $this->releaseClaim($patientId, $dueDate);
+            throw $e;
+        }
+
+        // A failed attempt (no gateway credentials, bad number) can be retried on a later run.
+        if ($log->status === 'failed') {
+            $this->releaseClaim($patientId, $dueDate);
+        }
+
+        return $log;
+    }
+
+    private function releaseClaim(string $patientId, string $dueDate): void
+    {
+        DB::table('sms_reminder_claims')->where('patient_id', $patientId)->where('due_date', $dueDate)->delete();
     }
 
     /**
@@ -89,7 +126,11 @@ class DueReminderService
                 continue;
             }
 
-            $this->send($item);
+            if ($this->send($item) === null) {
+                $skipped++;
+
+                continue;
+            }
             $dispatched++;
         }
 

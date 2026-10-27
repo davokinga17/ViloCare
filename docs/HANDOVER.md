@@ -79,6 +79,12 @@ The owner publishes releases. The token exists only for the minutes a release ta
    ```
    Close the window. On GitHub, Developer settings, Personal access tokens, **Delete** the token (do not just let it expire). Create a new token for the next release.
 5. Never put the token in a file, a chat, a screenshot, `.env`, `electron-builder.yml` or git.
+6. **After pressing *Publish release*, check what clinics will actually receive.** No token needed, nothing is installed:
+   ```powershell
+   cd electron
+   node scripts/verify-update.js 1.1.2
+   ```
+   It fetches the public `latest.yml`, confirms the version, that the release is neither a draft nor a pre-release, that the installer's size and sha512 match `latest.yml`, that the `.blockmap` exists, and that `electron-builder.yml` publishes to `davokinga17/vilocare-releases`. It deletes its temporary download and exits with an error and a plain message on any failure. (A draft is not public, so run it only after publishing.)
 
 ## 6. What the previous maintainer must remove
 

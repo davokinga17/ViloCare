@@ -77,9 +77,22 @@ function setEnvValues(values) {
   fs.writeFileSync(p.envFile, text);
 }
 
+const DEFAULT_DEVICE_ID = 'clinic-desktop-01';
+
+// Every installation needs its own ID (shown on the Sync Center and on the central server). Generated once at first-run
+// setup; an existing install that still has the shared default (or none) gets one the first time it starts. A value that
+// was set or edited in Settings is never touched. Returns the ID in use.
+function ensureDeviceId() {
+  const current = (readEnv().VILOCARE_DEVICE_ID || '').trim();
+  if (current && current !== DEFAULT_DEVICE_ID) return current;
+  const id = 'clinic-' + crypto.randomBytes(4).toString('hex');
+  setEnvValues({ VILOCARE_DEVICE_ID: id });
+  return id;
+}
+
 function needsSetup() {
   const env = readEnv();
   return !env.VILOCARE_REMOTE_SYNC_URL || !env.VILOCARE_SYNC_API_TOKEN;
 }
 
-module.exports = { state, userSettings, readEnv, ensureEnvFile, setEnvValues, needsSetup };
+module.exports = { state, userSettings, readEnv, ensureEnvFile, ensureDeviceId, DEFAULT_DEVICE_ID, setEnvValues, needsSetup };

@@ -7,6 +7,8 @@ const https = require('https');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
+const phpMin = require('./php-min');
+
 const PHP_SERIES = '8.3';
 const root = path.join(__dirname, '..');
 const phpDir = path.join(root, 'resources', 'php');
@@ -40,6 +42,8 @@ async function main() {
     const rel = releases[PHP_SERIES];
     const build = rel && rel['ts-vs16-x64'];
     if (!build) throw new Error(`No ts-vs16-x64 build found for PHP ${PHP_SERIES}`);
+    // Stop before downloading if windows.php.net does not offer a patched build yet.
+    phpMin.assertMin(rel.version, 'The newest PHP 8.3 on windows.php.net');
     console.log(`Downloading PHP ${rel.version} (${build.zip.path})...`);
     const zip = await get(`https://windows.php.net/downloads/releases/${build.zip.path}`);
     const sha = crypto.createHash('sha256').update(zip).digest('hex');
@@ -96,6 +100,11 @@ async function main() {
     fs.writeFileSync(path.join(phpDir, 'php.ini'), ini);
     console.log(`PHP ${rel.version} ready in resources/php`);
   }
+
+  // Whatever is in resources/php now (fresh or kept from an earlier build) must be the patched PHP, judged by the binary itself.
+  const bundled = phpMin.binaryVersion(path.join(phpDir, 'php.exe'));
+  phpMin.assertMin(bundled, 'The bundled PHP');
+  console.log(`Bundled PHP ${bundled} (minimum ${phpMin.MIN_PHP}): OK`);
 
   const redist = path.join(root, 'build', 'vc_redist.x64.exe');
   if (!fs.existsSync(redist)) {

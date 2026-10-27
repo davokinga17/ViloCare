@@ -59,7 +59,7 @@ class SyncApiController extends Controller
             'tables' => ['required', 'array'],
         ]);
 
-        $this->syncService->recordClinicContact($validated['device_id']);
+        $this->syncService->recordClinicContact($validated['device_id'], $request->header('X-Client-Version'));
 
         try {
             $result = $this->syncService->processServerPush($validated, $validated['device_id']);
@@ -81,7 +81,7 @@ class SyncApiController extends Controller
             return $authError;
         }
 
-        $this->syncService->recordClinicContact($request->header('X-Device-Id') ?? $request->query('device_id'));
+        $this->syncService->recordClinicContact($request->header('X-Device-Id') ?? $request->query('device_id'), $request->header('X-Client-Version'));
 
         $since = $request->query('since');
 
@@ -113,6 +113,10 @@ class SyncApiController extends Controller
     {
         if ($authError = $this->authorizeSyncToken($request)) {
             return $authError;
+        }
+
+        if ($request->header('X-Device-Id')) {
+            $this->syncService->recordClinicContact($request->header('X-Device-Id'), $request->header('X-Client-Version'));
         }
 
         try {
@@ -160,7 +164,7 @@ class SyncApiController extends Controller
             'since' => ['nullable', 'string'],
         ]);
 
-        $this->syncService->recordClinicContact($validated['device_id']);
+        $this->syncService->recordClinicContact($validated['device_id'], $request->header('X-Client-Version'));
 
         try {
             $pushResult =$this->syncService->processServerPush($validated, $validated['device_id']);

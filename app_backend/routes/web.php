@@ -155,6 +155,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/settings/sync', [SyncSettingsController::class, 'edit'])->name('settings.sync.edit');
             Route::put('/settings/sync', [SyncSettingsController::class, 'update'])->name('settings.sync.update');
             Route::post('/settings/sync/test', [SyncSettingsController::class, 'test'])->middleware('throttle:20,1')->name('settings.sync.test');
+            Route::put('/settings/device', [\App\Http\Controllers\DeviceSettingsController::class, 'update'])->name('settings.device.update');
 
             // Desktop app: administrator approval for "Restart and update now" (see AppUpdateController)
             Route::post('/app-update/approval', [AppUpdateController::class, 'approval'])->middleware('throttle:10,1')->name('app-update.approval');

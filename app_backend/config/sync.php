@@ -51,7 +51,14 @@ return [
     */
     'configured' => filled(env('VILOCARE_REMOTE_SYNC_URL')) && filled(env('VILOCARE_SYNC_API_TOKEN')),
 
+    // Unique per installation. The shared default is replaced by a generated ID (see App\Support\DeviceIdentity).
     'device_id' => env('VILOCARE_DEVICE_ID', 'clinic-desktop-01'),
+
+    /*
+    | "This computer sends SMS reminders". Off by default on clinic computers, so several clinics syncing the same
+    | patients never send the same reminder twice. The central server always sends. An offline clinic turns it on.
+    */
+    'sends_sms' => (bool) env('VILOCARE_SENDS_SMS', false),
 
     'batch_size' => (int) env('VILOCARE_SYNC_BATCH_SIZE', 100),
 

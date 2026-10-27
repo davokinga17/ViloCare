@@ -46,9 +46,15 @@
             </div>
             <div>
                 <div style="font-weight: 700; font-size: 1.05rem; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    @if($stats['central'] ?? false)
+                        <span>Central server</span>
+                    @else
                     <span>Local Clinic Station:</span>
-                    <code style="background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.9rem;">{{ $stats['device_id'] }}</code>
-                    @if($stats['standalone'])
+                    <code style="background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.9rem;" id="device-id">{{ $stats['device_id'] }}</code>
+                    @endif
+                    @if($stats['central'] ?? false)
+                        {{-- The central server does not sync outward: no auto-sync badge here. --}}
+                    @elseif($stats['standalone'])
                         <span class="badge" id="auto-sync-badge" style="font-size: 0.75rem; margin-left: 6px; background: #fef3c7; color: #b45309;" title="VILOCARE_SYNC_STANDALONE is on: records are not sent to the cloud.">⚠️ Standalone mode - cloud sync disabled</span>
                     @else
                         <span class="badge {{ $stats['auto_sync_stalled'] ? '' : 'badge-success' }}" id="auto-sync-badge"
@@ -66,8 +72,10 @@
                     @endif
                 </div>
                 <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    @unless($stats['central'] ?? false)
                     <span>Target Central Cloud: <strong>{{ $stats['remote_url'] }}</strong></span>
-                    @if(isset($stats['ssl_status']))
+                    @endunless
+                    @if(isset($stats['ssl_status']) && ! ($stats['central'] ?? false))
                         @if($stats['ssl_status']['ca_bundle_exists'])
                             <span class="badge" style="background: #ecfdf5; color: #047857; font-size: 0.72rem; border: 1px solid #a7f3d0;" title="CA Bundle: {{ $stats['ssl_status']['ca_bundle_path'] }}">
                                 🔒 Bundled CA Active (No php.ini edits needed)
@@ -82,6 +90,7 @@
             </div>
         </div>
 
+        @unless($stats['central'] ?? false)
         <div style="display: flex; align-items: center; gap: 20px;">
             <div style="text-align: right;">
                 <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600;">Last Successful Sync</div>
@@ -97,8 +106,42 @@
                 </div>
             </div>
         </div>
+        @endunless
     </div>
 </div>
+
+@if($stats['central'] ?? false)
+<div class="card" id="clinic-devices-card" style="margin-bottom: 20px;">
+    <div class="card-header">
+        <h2 class="card-title">Last clinic sync received</h2>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr><th>Device</th><th>App version</th><th>Last clinic sync received</th></tr>
+            </thead>
+            <tbody>
+                @forelse($stats['clinic_devices'] as $device)
+                    <tr>
+                        <td><code>{{ $device['device_id'] }}</code></td>
+                        <td>{{ $device['app_version'] ?? 'unknown' }}</td>
+                        <td>
+                            @if($device['last_contact_at'])
+                                {{ $device['last_contact_at']->diffForHumans() }}
+                                <span style="font-size: 0.8rem; color: #64748b;">({{ $device['last_contact_at']->format('Y-m-d H:i') }})</span>
+                            @else
+                                &mdash;
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="3" style="color: #64748b;">No clinic computer has contacted this server yet.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 
 {{-- Persistent last-run problem, so a failed or partial sync is never shown as an endless "Syncing..." --}}
 @if(!empty($stats['last_error']) && !session('sync_error_details'))
@@ -159,6 +202,7 @@
 
 <!-- Stats Grid -->
 <div class="stats-grid">
+    @unless($stats['central'] ?? false)
     <div class="stat-card" id="stat-pending-card" style="padding: 18px; border-left: 4px solid {{ $stats['total_pending'] > 0 ? '#ea580c' : '#10b981' }};">
         <div class="stat-header">
             <span class="stat-label">Pending Local Changes</span>
@@ -171,6 +215,7 @@
             {{ $stats['total_pending'] > 0 ? 'Ready to upload on next connection' : 'All local changes synchronized' }}
         </div>
     </div>
+    @endunless
 
     <div class="stat-card" style="padding: 18px; border-left: 4px solid #0d9488;">
         <div class="stat-header">
@@ -211,10 +256,10 @@
             <thead>
                 <tr>
                     <th>Clinical Domain Table</th>
-                    <th>Pending Upload</th>
+                    @unless($stats['central'] ?? false)<th>Pending Upload</th>@endunless
                     <th>Synced Records</th>
                     <th>Total Records</th>
-                    <th>Sync Status</th>
+                    @unless($stats['central'] ?? false)<th>Sync Status</th>@endunless
                 </tr>
             </thead>
             <tbody id="sync-tables-tbody">
@@ -224,6 +269,7 @@
                             <strong style="color: #0f172a;">{{ $tableInfo['label'] }}</strong>
                             <div style="font-size: 0.75rem; font-family: monospace; color: #64748b;">{{ $tableName }}</div>
                         </td>
+                        @unless($stats['central'] ?? false)
                         <td id="table-pending-{{ $tableName }}">
                             @if($tableInfo['pending'] > 0)
                                 <span class="badge" style="background: #ffedd5; color: #9a3412; font-weight: 700;">
@@ -233,12 +279,14 @@
                                 <span style="color: #94a3b8; font-size: 0.85rem;">0</span>
                             @endif
                         </td>
+                        @endunless
                         <td id="table-synced-{{ $tableName }}">
                             <span style="font-weight: 600; color: #0f766e;">{{ $tableInfo['synced'] }}</span>
                         </td>
                         <td id="table-total-{{ $tableName }}">
                             <span style="color: #334155; font-weight: 500;">{{ $tableInfo['total'] }}</span>
                         </td>
+                        @unless($stats['central'] ?? false)
                         <td>
                             @if($tableInfo['pending'] > 0)
                                 <span class="badge badge-warning" id="table-status-{{ $tableName }}">Awaiting Sync</span>
@@ -246,6 +294,7 @@
                                 <span class="badge badge-success" id="table-status-{{ $tableName }}">Up to Date</span>
                             @endif
                         </td>
+                        @endunless
                     </tr>
                 @endforeach
             </tbody>

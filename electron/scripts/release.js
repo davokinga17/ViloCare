@@ -1,6 +1,8 @@
 // Publishes the installer in dist/ to the public releases repository as a DRAFT (default) or, with --prerelease,
 // as a GitHub pre-release. Usage:  npm run release            (draft, for a stable version)
 //                                  npm run release -- --prerelease   (for versions like 1.1.1-beta.1)
+// Opt-in only:  npm run release -- --allow-dirty   builds a TEST DRAFT from uncommitted changes (log says DIRTY; refuses
+//               to combine with --prerelease, VILOCARE_PUBLISH or any publish argument).
 // Needs GH_TOKEN in the environment of this shell only. The token is sent to api.github.com and nowhere else, and is
 // never written to disk or printed. Refuses to run unless: token present, owner/repo filled in, git tree clean,
 // version higher than every existing release, tests pass, and the build check (files + secret scan) passes.
@@ -23,6 +25,13 @@ const fail = (msg) => {
 };
 const run = (cmd, args, cwd = root) => spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: true });
 
+// 0. --allow-dirty is checked first, before anything else can pass or fail.
+const allowDirty = process.argv.includes('--allow-dirty');
+if (allowDirty) {
+  const publishRequested = prerelease || (process.env.VILOCARE_PUBLISH || '').trim() !== '' || process.argv.some((a) => /publish/i.test(a));
+  if (publishRequested) fail('--allow-dirty builds a TEST DRAFT only and cannot be combined with a publish step (--prerelease, VILOCARE_PUBLISH, or any publish argument). Commit first, then release from the clean tree.');
+}
+
 // 1. token present (never printed)
 if (!token) fail('GH_TOKEN is not set in this shell. See README "Auto-update: first-time setup" (set it for this session only).');
 
@@ -38,10 +47,18 @@ if (prerelease !== policy.isPrerelease(version)) {
   fail(prerelease ? `--prerelease given but ${version} is not a pre-release version (e.g. 1.1.1-beta.1).` : `${version} is a pre-release version: run "npm run release -- --prerelease".`);
 }
 
-// 4. clean git tree
+// 4. clean git tree. The ONLY exception is the explicit, opt-in --allow-dirty flag, which builds a TEST DRAFT from
+// uncommitted changes. It is never the default and refuses to combine with any publish step: the build that gets
+// published must come from a clean, committed tree.
 const status = spawnSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
 if (status.status !== 0) fail('git status failed (is this a git checkout?).');
-if (status.stdout.trim()) fail('the git working tree has uncommitted changes. Commit (or stash) everything so the release matches a commit.');
+const dirty = status.stdout.trim() !== '';
+if (dirty && !allowDirty) fail('the git working tree has uncommitted changes. Commit (or stash) everything so the release matches a commit.');
+const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' });
+if (head.status !== 0) fail('git rev-parse HEAD failed.');
+const commit = head.stdout.trim();
+const buildLabel = dirty ? `${commit.slice(0, 12)} DIRTY (${status.stdout.trim().split(/\r?\n/).length} uncommitted file(s)): TEST DRAFT ONLY, DO NOT PUBLISH` : `${commit.slice(0, 12)} (clean)`;
+console.log(`\n== Build source: commit ${buildLabel} ==`);
 
 const api = async (method, url, { headers = {}, body } = {}) => {
   const res = await fetch(url.startsWith('http') ? url : `https://api.github.com${url}`, {
@@ -89,7 +106,14 @@ const api = async (method, url, { headers = {}, body } = {}) => {
   console.log(`\n== Creating ${prerelease ? 'pre-release' : 'DRAFT release'} ${tag} in ${repoPath} ==`);
   const release = await api('POST', `/repos/${repoPath}/releases`, {
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tag_name: tag, name: `ViLoCare ${version}`, draft: !prerelease, prerelease, generate_release_notes: false, body: `ViLoCare desktop ${version}` }),
+    body: JSON.stringify({
+      tag_name: tag,
+      name: dirty ? `ViLoCare ${version} (DIRTY TEST BUILD - DO NOT PUBLISH)` : `ViLoCare ${version}`,
+      draft: !prerelease,
+      prerelease,
+      generate_release_notes: false,
+      body: dirty ? `DIRTY TEST BUILD from commit ${commit} plus uncommitted changes. Do not publish; delete this draft and release from a clean commit.` : `ViLoCare desktop ${version}\n\nBuilt from commit ${commit}`,
+    }),
   });
 
   const files = [built.installerName, `${built.installerName}.blockmap`, built.ymlName];
@@ -107,6 +131,6 @@ const api = async (method, url, { headers = {}, body } = {}) => {
     const size = fs.statSync(path.join(root, 'dist', name)).size;
     if (have.get(name) !== size) fail(`${name} is missing or has the wrong size on GitHub. Delete the release ${tag} on GitHub and run again.`);
   }
-  console.log(`\nDone. ${prerelease ? 'Pre-release' : 'Draft'} ${tag}: ${after.html_url}`);
+  console.log(`\nDone. ${prerelease ? 'Pre-release' : 'Draft'} ${tag} from commit ${buildLabel}: ${after.html_url}`);
   console.log(prerelease ? 'It is live for beta installs only (stable installs never see pre-releases).' : 'It is a DRAFT: nobody receives it until you open the link and press "Publish release".');
 })().catch((e) => fail(e.message));

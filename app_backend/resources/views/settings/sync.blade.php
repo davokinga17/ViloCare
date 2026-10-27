@@ -75,6 +75,35 @@
         </form>
     </div>
 </div>
+
+<div class="card" style="max-width: 720px; margin-top: 20px;" id="device-settings-card">
+    <div class="card-header">
+        <h2 class="card-title">This computer</h2>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ route('settings.device.update') }}" autocomplete="off">
+            @csrf
+            @method('PUT')
+
+            <div class="form-group">
+                <label for="device_id" class="form-label">Device ID <span class="required">*</span></label>
+                <input type="text" id="device_id" name="device_id" value="{{ old('device_id', $deviceId) }}" required maxlength="60" class="form-control">
+                @error('device_id')<div class="form-help" style="color: #b91c1c;">{{ $message }}</div>@enderror
+                <div class="form-help">Must be different on every clinic computer. It is shown on the Sync Center and on the central server.</div>
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; gap: 8px; align-items: center;">
+                    <input type="checkbox" name="sends_sms" value="1" {{ old('sends_sms', $sendsSms) ? 'checked' : '' }}>
+                    <span class="form-label" style="margin: 0;">This computer sends SMS reminders</span>
+                </label>
+                <div class="form-help">Leave off when this clinic syncs with the central server, which sends the reminders. Turn on only for a clinic that works offline, otherwise patients could get the same reminder twice.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+</div>
 @endif
 @endsection
 
