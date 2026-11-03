@@ -91,17 +91,17 @@ class AiInsightService
         $startOfMonth = Carbon::now()->startOfMonth();
 
         // 1. Patient Cohort Breakdown (Aggregated counts only)
-        $totalPatients = Patient::count();
-        $pediatricCount = Patient::where('age', '<', 15)->count();
-        $youthCount = Patient::whereBetween('age', [15, 24])->count();
-        $adultCount = Patient::where('age', '>=', 25)->count();
-        $femaleCount = Patient::where('sex', 'female')->count();
-        $maleCount = Patient::where('sex', 'male')->count();
-        $pregnantCount = Patient::where('is_pregnant', true)->count();
-        $breastfeedingCount = Patient::where('is_breastfeeding', true)->count();
+        $totalPatients = Patient::where('status', Patient::STATUS_ACTIVE)->count();
+        $pediatricCount = Patient::where('status', Patient::STATUS_ACTIVE)->where('age', '<', 15)->count();
+        $youthCount = Patient::where('status', Patient::STATUS_ACTIVE)->whereBetween('age', [15, 24])->count();
+        $adultCount = Patient::where('status', Patient::STATUS_ACTIVE)->where('age', '>=', 25)->count();
+        $femaleCount = Patient::where('status', Patient::STATUS_ACTIVE)->where('sex', 'female')->count();
+        $maleCount = Patient::where('status', Patient::STATUS_ACTIVE)->where('sex', 'male')->count();
+        $pregnantCount = Patient::where('status', Patient::STATUS_ACTIVE)->where('is_pregnant', true)->count();
+        $breastfeedingCount = Patient::where('status', Patient::STATUS_ACTIVE)->where('is_breastfeeding', true)->count();
 
         // Active Regimen lines distribution
-        $activeRegimens = RegimenHistory::whereNull('end_date')->get();
+        $activeRegimens = RegimenHistory::whereNull('end_date')->whereHas('patient', fn ($q) => $q->where('status', Patient::STATUS_ACTIVE))->get();
         $firstLineCount = $activeRegimens->filter(fn ($r) => str_contains(strtolower($r->regimen_line ?? ''), '1') || str_contains(strtolower($r->regimen_name ?? ''), '1st') || str_contains(strtolower($r->regimen_line ?? ''), 'first'))->count();
         $secondLineCount = $activeRegimens->filter(fn ($r) => str_contains(strtolower($r->regimen_line ?? ''), '2') || str_contains(strtolower($r->regimen_name ?? ''), '2nd') || str_contains(strtolower($r->regimen_line ?? ''), 'second'))->count();
         $thirdLineCount = $activeRegimens->filter(fn ($r) => str_contains(strtolower($r->regimen_line ?? ''), '3') || str_contains(strtolower($r->regimen_name ?? ''), '3rd') || str_contains(strtolower($r->regimen_line ?? ''), 'third'))->count();

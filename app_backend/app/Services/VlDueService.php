@@ -27,6 +27,8 @@ use Illuminate\Support\Collection;
  *  - Post-EAC: completed-sessions episode whose repeat_vl_due_date is within the window (earliest wins).
  *  - Immediate PMTCT: pregnant, onset recorded, no VL since onset. Due today.
  *  - Samples collected but not yet resulted do not change due status.
+ *  - Only patients with status = 'active' can be due (transferred_out, deceased and lost_to_followup
+ *    never are). An open EAC episode of an inactive patient is left untouched but is not listed here.
  */
 class VlDueService
 {
@@ -99,7 +101,8 @@ class VlDueService
         $engine = app(ViralLoadEngine::class);
         $baseline = Patient::with(['facility', 'activeRegimen'])
             ->whereDoesntHave('viralLoadResults')
-            ->whereNotNull('art_start_date');
+            ->whereNotNull('art_start_date')
+            ->where('status', Patient::STATUS_ACTIVE);
         $this->filterPatientLocation($baseline, $location);
 
         foreach ($baseline->get() as $patient) {
@@ -157,7 +160,8 @@ class VlDueService
     {
         $query = Patient::with(['facility', 'activeRegimen', 'latestViralLoadResult'])
             ->where('is_pregnant', true)
-            ->whereNotNull('pregnancy_onset_at');
+            ->whereNotNull('pregnancy_onset_at')
+            ->where('status', Patient::STATUS_ACTIVE);
         $this->filterPatientLocation($query, $location);
 
         return $query->get()->filter(fn (Patient $p) => $p->isImmediateVlRequired())->values();
@@ -174,12 +178,16 @@ class VlDueService
         return $this->due($location, $daysAhead)->filter(fn (VlDueItem $i) => $i->isOverdue())->count();
     }
 
+    /** Restrict a query on a patient-owned table to ACTIVE patients, plus the location filter if any. */
     private function filterByPatientLocation($query, array $location): void
     {
-        if ($column = $this->locationColumn($location)) {
-            [$name, $value] = $column;
-            $query->whereHas('patient', fn ($q) => $q->where($name, $value));
-        }
+        $column = $this->locationColumn($location);
+        $query->whereHas('patient', function ($q) use ($column) {
+            $q->where('status', Patient::STATUS_ACTIVE);
+            if ($column) {
+                $q->where($column[0], $column[1]);
+            }
+        });
     }
 
     private function filterPatientLocation($query, array $location): void

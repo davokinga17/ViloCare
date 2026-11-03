@@ -125,6 +125,7 @@ class DashboardChartsService
         $pastResults = ViralLoadResult::query()->toBase()
             ->where('next_due_date', '>=', $first)->where('next_due_date', '<', $pastEnd);
         $this->filterByPatient($pastResults, $location);
+        $this->activePatientsOnly($pastResults, 'patient_id');
         foreach ($pastResults->get(['patient_id', 'next_due_date']) as $row) {
             $due[substr((string) $row->next_due_date, 0, 7)][$row->patient_id] = true;
         }
@@ -132,6 +133,7 @@ class DashboardChartsService
         $pastEpisodes = EacEpisode::query()->toBase()
             ->where('repeat_vl_due_date', '>=', $first)->where('repeat_vl_due_date', '<', $pastEnd);
         $this->filterByPatient($pastEpisodes, $location);
+        $this->activePatientsOnly($pastEpisodes, 'patient_id');
         foreach ($pastEpisodes->get(['patient_id', 'repeat_vl_due_date']) as $row) {
             $due[substr((string) $row->repeat_vl_due_date, 0, 7)][$row->patient_id] = true;
         }
@@ -139,6 +141,7 @@ class DashboardChartsService
         $pastPmtct = Patient::query()->toBase()
             ->where('pregnancy_onset_at', '>=', $first)->where('pregnancy_onset_at', '<', $pastEnd);
         $this->filterPatients($pastPmtct, $location);
+        $pastPmtct->where('status', Patient::STATUS_ACTIVE);
         foreach ($pastPmtct->get(['id', 'pregnancy_onset_at']) as $row) {
             $due[substr((string) $row->pregnancy_onset_at, 0, 7)][$row->id] = true;
         }
@@ -392,6 +395,12 @@ class DashboardChartsService
         if ($column = $this->locationColumn($location)) {
             $query->whereIn('patient_id', Patient::query()->toBase()->select('id')->where($column[0], $column[1]));
         }
+    }
+
+    /** Only rows of ACTIVE patients (used for the VL-due series, which follows VlDueService). */
+    private function activePatientsOnly($query, string $column): void
+    {
+        $query->whereIn($column, Patient::query()->toBase()->select('id')->where('status', Patient::STATUS_ACTIVE));
     }
 
     /** Restrict a patients query (Eloquent or base) to the filtered location. */

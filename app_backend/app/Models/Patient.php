@@ -16,6 +16,8 @@ class Patient extends Model
 {
     use HasFactory, HasUuidAndSync, Auditable;
 
+    public const STATUS_ACTIVE = 'active';
+
     protected $fillable = [
         'id',
         'art_number',
