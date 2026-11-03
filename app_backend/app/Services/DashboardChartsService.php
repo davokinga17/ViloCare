@@ -414,6 +414,7 @@ class DashboardChartsService
     /** @return array{0: string, 1: string}|null the most specific of facility, county, state */
     private function locationColumn(array $location): ?array
     {
+        $location = \App\Services\AccessScope::current()->narrowLocation($location);
         foreach (['facility_id', 'county_id', 'state_id'] as $key) {
             $value = $location[$key] ?? null;
             if ($value && $value !== 'all') {

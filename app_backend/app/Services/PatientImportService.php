@@ -46,11 +46,13 @@ class PatientImportService
         $headers = array_map(fn ($h) => Str::snake(trim(strtolower((string) $h))), $rawHeader);
 
         // Preload default locations for fast resolution
-        $defaultFacility = Facility::first();
+        // A restricted user imports only into their own facility; a row naming another facility is rejected.
+        $restricted = ! \App\Services\AccessScope::current()->isAll();
+        $defaultFacility = Facility::allowed()->first();
         $defaultCounty = $defaultFacility?->county ?? County::first();
         $defaultState = $defaultCounty?->state ?? State::first();
 
-        $facilitiesByCode = Facility::all()->keyBy('code');
+        $facilitiesByCode = Facility::allowed()->get()->keyBy('code');
         $countiesByCode = County::all()->keyBy('code');
         $statesByCode = State::all()->keyBy('code');
 
@@ -107,7 +109,7 @@ class PatientImportService
                 }
 
                 // Check duplicate ART in database
-                if (Patient::where('art_number', $artNumber)->exists()) {
+                if (Patient::withoutGlobalScopes()->where('art_number', $artNumber)->exists()) {
                     $currentErrors[] = "ART Number '{$artNumber}' already exists in the clinic database.";
                 }
             }
@@ -141,6 +143,15 @@ class PatientImportService
 
             // Resolve location foreign keys
             $facility = null;
+            if ($restricted && ! empty($data['facility_code']) && ! isset($facilitiesByCode[$data['facility_code']])) {
+                $failedCount++;
+                $rowErrors[] = [
+                    'row' => $rowNumber,
+                    'art_number' => $artNumber,
+                    'errors' => ['This facility is outside your access. Patients can only be imported into your own facility.'],
+                ];
+                continue;
+            }
             if (!empty($data['facility_code']) && isset($facilitiesByCode[$data['facility_code']])) {
                 $facility = $facilitiesByCode[$data['facility_code']];
             } else {

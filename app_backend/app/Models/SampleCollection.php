@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SampleCollection extends Model
 {
-    use HasFactory, HasUuidAndSync, Auditable;
+    use HasFactory, HasUuidAndSync, Auditable, \App\Traits\ScopedByFacility;
+
+    protected static string $facilityScopeKind = 'sample';
 
     protected $fillable = [
         'id',
@@ -39,7 +41,9 @@ class SampleCollection extends Model
 
     public function patient(): BelongsTo
     {
-        return $this->belongsTo(Patient::class);
+        // A lab sees a sample (and its patient identity) through the sample scope, even when the patient record
+        // itself is outside the lab user's patient scope.
+        return $this->belongsTo(Patient::class)->withoutGlobalScopes();
     }
 
     public function facility(): BelongsTo

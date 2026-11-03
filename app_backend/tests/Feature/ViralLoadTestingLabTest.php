@@ -40,7 +40,7 @@ class ViralLoadTestingLabTest extends TestCase
         $this->labTech = User::create([
             'name' => 'Lab Brian',
             'email' => 'brian@clinic.org',
-            'role' => UserRole::LAB_TECHNICIAN,
+            'role' => UserRole::LAB_TECHNICIAN, 'facility_id' => $facility->id,
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,

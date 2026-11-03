@@ -43,7 +43,7 @@ class SampleManagementTest extends TestCase
         $this->clinician = User::create([
             'name' => 'Dr. Paul Clinician',
             'email' => 'paul@clinic.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -52,7 +52,7 @@ class SampleManagementTest extends TestCase
         $this->labTech = User::create([
             'name' => 'Tech Alice',
             'email' => 'alice@clinic.org',
-            'role' => UserRole::LAB_TECHNICIAN,
+            'role' => UserRole::LAB_TECHNICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -61,7 +61,7 @@ class SampleManagementTest extends TestCase
         $this->dataClerk = User::create([
             'name' => 'Clerk George',
             'email' => 'george@clinic.org',
-            'role' => UserRole::DATA_CLERK,
+            'role' => UserRole::DATA_CLERK, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,

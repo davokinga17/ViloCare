@@ -37,7 +37,7 @@ class FiltersAndGraphsTest extends TestCase
         $this->clinician = User::create([
             'name' => 'Dr. Elizabeth Test',
             'email' => 'elizabeth.test@clinic.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::ADMINISTRATOR, // these tests compare several facilities, which only an administrator can see
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,

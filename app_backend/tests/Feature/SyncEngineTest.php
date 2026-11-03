@@ -54,7 +54,7 @@ class SyncEngineTest extends TestCase
             'name' => 'Dr. Jane Clinician',
             'email' => 'jane@vilocare.org',
             'phone' => '+254711000002',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId('KCH-001'),
             'password' => bcrypt('Jane@123456'),
             'must_change_password' => false,
             'is_active' => true,
@@ -340,8 +340,8 @@ class SyncEngineTest extends TestCase
             ->assertSee('Sync Center', false)
             ->assertSee('Synchronized Clinical Tables', false);
 
-        // 2. Conflicts list page
-        $this->actingAs($this->clinician)->get(route('sync.conflicts'))
+        // 2. Conflicts list page (administrators only: it shows raw record contents)
+        $this->actingAs($this->admin)->get(route('sync.conflicts'))
             ->assertOk()
             ->assertSee('Sync Conflict History', false);
 
@@ -358,14 +358,14 @@ class SyncEngineTest extends TestCase
             'resolution_strategy' => 'last_write_wins',
         ]);
 
-        $this->actingAs($this->clinician)->post(route('sync.conflicts.resolve', $conflict), [
+        $this->actingAs($this->admin)->post(route('sync.conflicts.resolve', $conflict), [
             'strategy' => 'mark_resolved',
             'notes' => 'Reviewed by Dr. Jane.',
         ])->assertRedirect(route('sync.conflicts'));
 
         $conflict->refresh();
         $this->assertNotNull($conflict->resolved_at);
-        $this->assertEquals($this->clinician->id, $conflict->resolved_by);
+        $this->assertEquals($this->admin->id, $conflict->resolved_by);
     }
 
     public function test_sync_cli_commands(): void
@@ -497,7 +497,7 @@ class SyncEngineTest extends TestCase
             'name' => 'Server Intake Clerk',
             'email' => 'newstaff@vilocare.org',
             'phone' => '+211910000005',
-            'role' => UserRole::DATA_CLERK,
+            'role' => UserRole::DATA_CLERK, 'facility_id' => $this->defaultFacilityId('KCH-001'),
             'password' => bcrypt('ServerPass@123'),
             'must_change_password' => true,
             'is_active' => true,

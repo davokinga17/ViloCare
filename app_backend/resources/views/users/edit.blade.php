@@ -62,6 +62,8 @@
                 </div>
             </div>
 
+            @include('users._assignment')
+
             <div style="margin-top: 24px; display: flex; gap: 12px;">
                 <button type="submit" class="btn btn-primary">Save Changes</button>
                 <a href="{{ route('users.index') }}" class="btn btn-secondary">Cancel</a>

@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Appointment extends Model
 {
-    use HasFactory, HasUuidAndSync, Auditable;
+    use HasFactory, HasUuidAndSync, Auditable, \App\Traits\ScopedByFacility;
+
+    protected static string $facilityScopeKind = 'patient_id';
 
     protected $fillable = [
         'id',

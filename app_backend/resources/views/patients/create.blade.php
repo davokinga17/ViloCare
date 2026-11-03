@@ -132,7 +132,7 @@
 
                     <div class="form-group">
                         <label for="facility_id" class="form-label">Care Facility (Location FK) <span class="required">*</span></label>
-                        <select id="facility_id" name="facility_id" required class="form-select">
+                        <select id="facility_id" name="facility_id" required class="form-select" @unless(auth()->user()->isAdmin()) disabled title="Your facility is fixed" @endunless>
                             <option value="">-- Select Facility --</option>
                             @foreach($facilities as $fac)
                                 <option value="{{ $fac->id }}" {{ old('facility_id') == $fac->id ? 'selected' : '' }}>

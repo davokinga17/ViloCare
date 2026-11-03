@@ -42,7 +42,7 @@ class PatientAndRegimenManagementTest extends TestCase
         $this->clinician = User::create([
             'name' => 'Dr. Jane Clinician',
             'email' => 'clinician@test.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -51,7 +51,7 @@ class PatientAndRegimenManagementTest extends TestCase
         $this->dataClerk = User::create([
             'name' => 'Clerk John',
             'email' => 'clerk@test.org',
-            'role' => UserRole::DATA_CLERK,
+            'role' => UserRole::DATA_CLERK, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -60,7 +60,7 @@ class PatientAndRegimenManagementTest extends TestCase
         $this->labTech = User::create([
             'name' => 'Tech Mark',
             'email' => 'labtech@test.org',
-            'role' => UserRole::LAB_TECHNICIAN,
+            'role' => UserRole::LAB_TECHNICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,

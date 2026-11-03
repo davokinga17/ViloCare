@@ -20,16 +20,32 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
+    /**
+     * A location filter can only narrow the user's access: a state, county or facility outside the allowed
+     * lists (e.g. typed into the URL) falls back to "all", which is still limited to the user's scope.
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function clampSelection($states, $counties, $facilities, $stateId, $countyId, $facilityId): array
+    {
+        return [
+            $stateId !== 'all' && ! $states->contains('id', $stateId) ? 'all' : $stateId,
+            $countyId !== 'all' && ! $counties->contains('id', $countyId) ? 'all' : $countyId,
+            $facilityId !== 'all' && ! $facilities->contains('id', $facilityId) ? 'all' : $facilityId,
+        ];
+    }
+
     public function index(Request $request, AnalyticsService $analyticsService, VlDueService $vlDueService, SuppressionService $suppressionService): View
     {
         // 1. Location hierarchy lists
-        $states = State::orderBy('name')->get();
-        $counties = County::with('state')->orderBy('name')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $states = State::allowed()->orderBy('name')->get();
+        $counties = County::allowed()->with('state')->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         $selectedStateId = $request->input('state_id', 'all');
         $selectedCountyId = $request->input('county_id', 'all');
         $selectedFacilityId = $request->input('facility_id', 'all');
+        [$selectedStateId, $selectedCountyId, $selectedFacilityId] = $this->clampSelection($states, $counties, $facilities, $selectedStateId, $selectedCountyId, $selectedFacilityId);
 
         // Validate hierarchy integrity
         if ($selectedFacilityId !== 'all') {
@@ -146,13 +162,14 @@ class ReportController extends Controller
 
     public function patientList(Request $request): View|StreamedResponse
     {
-        $states = State::orderBy('name')->get();
-        $counties = County::with('state')->orderBy('name')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $states = State::allowed()->orderBy('name')->get();
+        $counties = County::allowed()->with('state')->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         $selectedStateId = $request->input('state_id', 'all');
         $selectedCountyId = $request->input('county_id', 'all');
         $selectedFacilityId = $request->input('facility_id', 'all');
+        [$selectedStateId, $selectedCountyId, $selectedFacilityId] = $this->clampSelection($states, $counties, $facilities, $selectedStateId, $selectedCountyId, $selectedFacilityId);
 
         $query = Patient::with(['facility', 'county.state', 'state', 'activeRegimen', 'latestViralLoadResult'])->latest('art_start_date');
 
@@ -264,13 +281,14 @@ class ReportController extends Controller
 
     public function viralLoadSummary(Request $request, AnalyticsService $analyticsService, SuppressionService $suppressionService): View|StreamedResponse
     {
-        $states = State::orderBy('name')->get();
-        $counties = County::with('state')->orderBy('name')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $states = State::allowed()->orderBy('name')->get();
+        $counties = County::allowed()->with('state')->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         $selectedStateId = $request->input('state_id', 'all');
         $selectedCountyId = $request->input('county_id', 'all');
         $selectedFacilityId = $request->input('facility_id', 'all');
+        [$selectedStateId, $selectedCountyId, $selectedFacilityId] = $this->clampSelection($states, $counties, $facilities, $selectedStateId, $selectedCountyId, $selectedFacilityId);
 
         $query = ViralLoadResult::with(['patient.facility', 'patient.activeRegimen', 'requestingClinician'])->latest('result_date');
 
@@ -409,13 +427,14 @@ class ReportController extends Controller
 
     public function eacStatus(Request $request): View|StreamedResponse
     {
-        $states = State::orderBy('name')->get();
-        $counties = County::with('state')->orderBy('name')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $states = State::allowed()->orderBy('name')->get();
+        $counties = County::allowed()->with('state')->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         $selectedStateId = $request->input('state_id', 'all');
         $selectedCountyId = $request->input('county_id', 'all');
         $selectedFacilityId = $request->input('facility_id', 'all');
+        [$selectedStateId, $selectedCountyId, $selectedFacilityId] = $this->clampSelection($states, $counties, $facilities, $selectedStateId, $selectedCountyId, $selectedFacilityId);
 
         $query = EacEpisode::with(['patient.facility', 'viralLoadResult', 'repeatViralLoadResult', 'sessions.counselor'])->latest();
 
@@ -490,13 +509,14 @@ class ReportController extends Controller
 
     public function dueList(Request $request, VlDueService $vlDueService): View|StreamedResponse
     {
-        $states = State::orderBy('name')->get();
-        $counties = County::with('state')->orderBy('name')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $states = State::allowed()->orderBy('name')->get();
+        $counties = County::allowed()->with('state')->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         $selectedStateId = $request->input('state_id', 'all');
         $selectedCountyId = $request->input('county_id', 'all');
         $selectedFacilityId = $request->input('facility_id', 'all');
+        [$selectedStateId, $selectedCountyId, $selectedFacilityId] = $this->clampSelection($states, $counties, $facilities, $selectedStateId, $selectedCountyId, $selectedFacilityId);
 
         $daysAhead = max(0, (int) $request->input('days', 30));
 

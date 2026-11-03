@@ -59,7 +59,7 @@ class SyncApiController extends Controller
             'tables' => ['required', 'array'],
         ]);
 
-        $this->syncService->recordClinicContact($validated['device_id'], $request->header('X-Client-Version'));
+        $this->syncService->recordClinicContact($validated['device_id'], $request->header('X-Client-Version', ''));
 
         try {
             $result = $this->syncService->processServerPush($validated, $validated['device_id']);
@@ -81,7 +81,7 @@ class SyncApiController extends Controller
             return $authError;
         }
 
-        $this->syncService->recordClinicContact($request->header('X-Device-Id') ?? $request->query('device_id'), $request->header('X-Client-Version'));
+        $this->syncService->recordClinicContact($request->header('X-Device-Id') ?? $request->query('device_id'), $request->header('X-Client-Version', ''));
 
         $since = $request->query('since');
 
@@ -95,7 +95,7 @@ class SyncApiController extends Controller
             : null;
 
         try {
-            $result = $this->syncService->processServerPull($since, $resume);
+            $result = $this->syncService->processServerPull($since, $resume, $request->header('X-Client-Version', ''));
             return response()->json($result);
         } catch (Exception $e) {
             \Illuminate\Support\Facades\Log::error('SyncApiController::pull exception: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -116,7 +116,7 @@ class SyncApiController extends Controller
         }
 
         if ($request->header('X-Device-Id')) {
-            $this->syncService->recordClinicContact($request->header('X-Device-Id'), $request->header('X-Client-Version'));
+            $this->syncService->recordClinicContact($request->header('X-Device-Id'), $request->header('X-Client-Version', ''));
         }
 
         try {
@@ -164,11 +164,11 @@ class SyncApiController extends Controller
             'since' => ['nullable', 'string'],
         ]);
 
-        $this->syncService->recordClinicContact($validated['device_id'], $request->header('X-Client-Version'));
+        $this->syncService->recordClinicContact($validated['device_id'], $request->header('X-Client-Version', ''));
 
         try {
             $pushResult =$this->syncService->processServerPush($validated, $validated['device_id']);
-            $pullResult = $this->syncService->processServerPull($validated['since'] ?? null);
+            $pullResult = $this->syncService->processServerPull($validated['since'] ?? null, null, $request->header('X-Client-Version', ''));
 
             return response()->json([
                 'success' => true,

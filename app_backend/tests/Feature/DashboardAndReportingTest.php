@@ -23,6 +23,8 @@ class DashboardAndReportingTest extends TestCase
     use RefreshDatabase;
 
     protected User $clinician;
+
+    protected User $admin;
     protected Facility $facility;
     protected Patient $patient;
 
@@ -36,12 +38,22 @@ class DashboardAndReportingTest extends TestCase
         $this->clinician = User::create([
             'name' => 'Dr. Elizabeth',
             'email' => 'elizabeth@clinic.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->facility->id,
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
         ]);
 
+
+        // Comparing several facilities is something only an administrator can do.
+        $this->admin = User::create([
+            'name' => 'Admin Boss',
+            'email' => 'admin@clinic.org',
+            'role' => UserRole::ADMINISTRATOR,
+            'password' => Hash::make('Password@123'),
+            'must_change_password' => false,
+            'is_active' => true,
+        ]);
         $this->patient = Patient::create([
             'art_number' => 'ART-99001',
             'first_name' => 'Grace',
@@ -251,31 +263,31 @@ class DashboardAndReportingTest extends TestCase
         ]);
 
         // 1. Default request filters to current default facility ($this->facility)
-        $defaultResp = $this->actingAs($this->clinician)->get('/dashboard');
+        $defaultResp = $this->actingAs($this->admin)->get('/dashboard');
         $defaultResp->assertStatus(200);
         $defaultResp->assertSee('Grace Achieng');
         $defaultResp->assertDontSee('John Opondo');
 
         // 2. Filter specifically by other facility
-        $otherResp = $this->actingAs($this->clinician)->get("/dashboard?facility_id={$otherFacility->id}");
+        $otherResp = $this->actingAs($this->admin)->get("/dashboard?facility_id={$otherFacility->id}");
         $otherResp->assertStatus(200);
         $otherResp->assertSee('John Opondo');
         $otherResp->assertDontSee('Grace Achieng');
 
         // 3. Filter by all facilities
-        $allResp = $this->actingAs($this->clinician)->get('/dashboard?facility_id=all');
+        $allResp = $this->actingAs($this->admin)->get('/dashboard?facility_id=all');
         $allResp->assertStatus(200);
         $allResp->assertSee('Grace Achieng');
         $allResp->assertSee('John Opondo');
 
         // 4. Date range filter
-        $periodResp = $this->actingAs($this->clinician)->get('/dashboard?facility_id=all&date_range=this_month');
+        $periodResp = $this->actingAs($this->admin)->get('/dashboard?facility_id=all&date_range=this_month');
         $periodResp->assertStatus(200);
     }
 
     public function test_reports_hub_location_filters_and_charts(): void
     {
-        $response = $this->actingAs($this->clinician)->get('/reports');
+        $response = $this->actingAs($this->admin)->get('/reports');
         $response->assertStatus(200);
         $response->assertSee('reports-filter-form');
         $response->assertSee('State:');
@@ -306,14 +318,14 @@ class DashboardAndReportingTest extends TestCase
         $this->assertNotNull($easternEquatoria);
 
         // Filter by state
-        $stateResp = $this->actingAs($this->clinician)->get("/dashboard?state_id={$easternEquatoria->id}&county_id=all&facility_id=all");
+        $stateResp = $this->actingAs($this->admin)->get("/dashboard?state_id={$easternEquatoria->id}&county_id=all&facility_id=all");
         $stateResp->assertStatus(200);
         $stateResp->assertSee('Grace Achieng');
         $stateResp->assertSee('dashboard-trend-chart');
         $stateResp->assertSee('dashboard-cohort-bar-chart');
 
         // Filter by county
-        $countyResp = $this->actingAs($this->clinician)->get("/dashboard?state_id={$easternEquatoria->id}&county_id={$this->facility->county_id}&facility_id=all");
+        $countyResp = $this->actingAs($this->admin)->get("/dashboard?state_id={$easternEquatoria->id}&county_id={$this->facility->county_id}&facility_id=all");
         $countyResp->assertStatus(200);
         $countyResp->assertSee('Grace Achieng');
     }
@@ -343,17 +355,17 @@ class DashboardAndReportingTest extends TestCase
         ]);
 
         // Unfiltered: shows 2 patients
-        $allResp = $this->actingAs($this->clinician)->get('/reports?facility_id=all');
+        $allResp = $this->actingAs($this->admin)->get('/reports?facility_id=all');
         $allResp->assertStatus(200);
         $this->assertEquals(2, $allResp->viewData('stats')['total_patients']);
 
         // Filtered to this->facility: shows 1 patient
-        $singleResp = $this->actingAs($this->clinician)->get("/reports?facility_id={$this->facility->id}");
+        $singleResp = $this->actingAs($this->admin)->get("/reports?facility_id={$this->facility->id}");
         $singleResp->assertStatus(200);
         $this->assertEquals(1, $singleResp->viewData('stats')['total_patients']);
 
         // Filtered to other facility: shows 1 patient
-        $otherResp = $this->actingAs($this->clinician)->get("/reports?facility_id={$otherFacility->id}");
+        $otherResp = $this->actingAs($this->admin)->get("/reports?facility_id={$otherFacility->id}");
         $otherResp->assertStatus(200);
         $this->assertEquals(1, $otherResp->viewData('stats')['total_patients']);
     }
@@ -379,7 +391,7 @@ class DashboardAndReportingTest extends TestCase
             $labels[] = now()->startOfMonth()->subMonths($i)->format('M Y');
         }
 
-        $response = $this->actingAs($this->clinician)->get('/dashboard?facility_id=all');
+        $response = $this->actingAs($this->admin)->get('/dashboard?facility_id=all');
         $response->assertStatus(200);
 
         $line = $response->viewData('charts')['line'];

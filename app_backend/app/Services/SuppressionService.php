@@ -119,6 +119,7 @@ class SuppressionService
     /** Active patients in the location, optionally within one cohort. */
     private function patients(array $location, ?string $cohort = null): Builder
     {
+        $location = \App\Services\AccessScope::current()->narrowLocation($location);
         $query = Patient::query()->where('status', 'active');
 
         foreach (['facility_id', 'county_id', 'state_id'] as $key) {

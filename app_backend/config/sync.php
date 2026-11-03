@@ -157,5 +157,22 @@ return [
     'retired_locations' => [
         'facilities' => ['NPHL-017'],
     ],
+    /*
+    |--------------------------------------------------------------------------
+    | Features added after the oldest supported app
+    |--------------------------------------------------------------------------
+    |
+    | Apps older than `min_version` do not have these tables/columns. The central server leaves them out of
+    | what it sends to such an app (decided by X-Client-Version; a missing header counts as old), so an old
+    | app never receives a column it cannot store. New apps also ignore unknown columns and tables themselves.
+    |
+    */
+    'versioned_features' => [
+        'min_version' => '1.1.3',
+        'tables' => ['patient_transfers'],
+        'columns' => [
+            'users' => ['facility_id', 'testing_laboratory_id'],
+        ],
+    ],
 
 ];

@@ -7,6 +7,7 @@ use App\Models\County;
 use App\Models\Facility;
 use App\Models\Patient;
 use App\Models\State;
+use App\Services\AccessScope;
 use App\Services\PatientImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,7 +67,7 @@ class PatientController extends Controller
         }
 
         $patients = $query->latest('art_start_date')->paginate(15)->withQueryString();
-        $facilities = Facility::orderBy('name')->get();
+        $facilities = Facility::allowed()->orderBy('name')->get();
 
         $stats = [
             'total' => Patient::count(),
@@ -82,10 +83,29 @@ class PatientController extends Controller
         ]);
     }
 
+    /**
+     * A restricted user (anyone but an administrator) registers and edits patients only in their own facility.
+     * Whatever facility_id the form or request carries is replaced, so editing the request cannot move a patient.
+     */
+    private function fixFacilityForRestrictedUser(Request $request, ?string $facilityId = null): void
+    {
+        $user = auth()->user();
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        $facilityId ??= $user->facility_id;
+        if (! $facilityId || ! AccessScope::current()->allowsFacility($facilityId)) {
+            abort(403, 'No facility assigned. Ask an administrator.');
+        }
+
+        $request->merge(['facility_id' => $facilityId]);
+    }
+
     public function create(): View
     {
-        $states = State::with('counties.facilities')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $states = State::allowed()->with('counties.facilities')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         return view('patients.create', [
             'states' => $states,
@@ -95,6 +115,8 @@ class PatientController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->fixFacilityForRestrictedUser($request);
+
         $validated = $request->validate([
             'art_number' => ['required', 'string', 'max:50', 'unique:patients,art_number'],
             'first_name' => ['required', 'string', 'max:100'],
@@ -193,7 +215,7 @@ class PatientController extends Controller
 
     public function edit(Patient $patient): View
     {
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         return view('patients.edit', [
             'patient' => $patient,
@@ -203,6 +225,8 @@ class PatientController extends Controller
 
     public function update(Request $request, Patient $patient): RedirectResponse
     {
+        $this->fixFacilityForRestrictedUser($request, $patient->facility_id);
+
         $validated = $request->validate([
             'art_number' => ['required', 'string', 'max:50', Rule::unique('patients', 'art_number')->ignore($patient->id)],
             'first_name' => ['required', 'string', 'max:100'],

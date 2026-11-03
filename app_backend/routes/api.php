@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\SyncApiController;
 use App\Http\Middleware\EnforceMinClientVersion;
+use App\Http\Middleware\UnscopedAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('v1/sync')->group(function () {
+Route::prefix('v1/sync')->middleware(UnscopedAccess::class)->group(function () {
     // Health check stays open to every version; everything that moves data checks X-Client-Version.
     Route::get('/status', [SyncApiController::class, 'status']);
     Route::middleware(EnforceMinClientVersion::class)->group(function () {

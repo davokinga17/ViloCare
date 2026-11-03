@@ -11,6 +11,28 @@ abstract class TestCase extends BaseTestCase
     /** How many times the (fake) background sync launcher was asked to start a process. */
     public int $backgroundSyncStarts = 0;
 
+    /**
+     * Staff other than administrators work for one facility (see AccessScope). Test fixtures that create such
+     * users without caring which facility use this one: the facility with the given code, else the one that
+     * Facility::firstOrFail() returns (what most fixtures put their patients in).
+     */
+    protected function defaultFacilityId(?string $code = null): ?string
+    {
+        if ($code) {
+            return \App\Models\Facility::where('code', $code)->value('id');
+        }
+
+        if ($facility = \App\Models\Facility::first()) {
+            return $facility->id;
+        }
+
+        // Tests that seed no locations still need a facility to assign.
+        $state = \App\Models\State::create(['name' => 'Test State', 'code' => 'TST']);
+        $county = \App\Models\County::create(['name' => 'Test County', 'code' => 'TSC', 'state_id' => $state->id]);
+
+        return \App\Models\Facility::create(['name' => 'Test Facility', 'code' => 'TSF-001', 'county_id' => $county->id])->id;
+    }
+
     /** Gives the app a (fake) Africa's Talking key and a faked gateway that accepts every message. */
     protected function fakeSmsGateway(): void
     {

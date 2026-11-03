@@ -14,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Patient extends Model
 {
-    use HasFactory, HasUuidAndSync, Auditable;
+    use HasFactory, HasUuidAndSync, Auditable, \App\Traits\ScopedByFacility;
+
+    protected static string $facilityScopeKind = 'patient';
 
     public const STATUS_ACTIVE = 'active';
 

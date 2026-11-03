@@ -42,7 +42,7 @@ class AppointmentManagementTest extends TestCase
         $this->clinician = User::create([
             'name' => 'Dr. Robert',
             'email' => 'robert@art.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -51,7 +51,7 @@ class AppointmentManagementTest extends TestCase
         $this->dataClerk = User::create([
             'name' => 'Clerk Joy',
             'email' => 'joy@art.org',
-            'role' => UserRole::DATA_CLERK,
+            'role' => UserRole::DATA_CLERK, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -60,7 +60,7 @@ class AppointmentManagementTest extends TestCase
         $this->labTech = User::create([
             'name' => 'Tech Simon',
             'email' => 'simon@art.org',
-            'role' => UserRole::LAB_TECHNICIAN,
+            'role' => UserRole::LAB_TECHNICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,

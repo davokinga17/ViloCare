@@ -156,7 +156,8 @@ class NotificationController extends Controller
             'category' => ['required', 'string', 'in:result_ready,due_date_reminder,eac_session_reminder,appointment_reminder,custom'],
         ]);
 
-        $patient = !empty($validated['patient_id']) ? Patient::find($validated['patient_id']) : null;
+        // A patient outside the user's access is treated as not found (never messaged, never revealed).
+        $patient = ! empty($validated['patient_id']) ? Patient::findOrFail($validated['patient_id']) : null;
 
         try {
             $notification = $this->smsService->send(

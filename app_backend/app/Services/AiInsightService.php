@@ -34,7 +34,11 @@ class AiInsightService
      */
     public function getClinicalSummary(bool $forceRefresh = false): array
     {
-        if (! $forceRefresh && Cache::has(self::CACHE_KEY_DAILY_SUMMARY)) {
+        // The cached summary describes ALL data, so it is shared only with all-data users; a facility user always
+        // gets a summary of their own scope, never cached.
+        $shareable = \App\Services\AccessScope::current()->isAll();
+
+        if ($shareable && ! $forceRefresh && Cache::has(self::CACHE_KEY_DAILY_SUMMARY)) {
             return [
                 'summary' => Cache::get(self::CACHE_KEY_DAILY_SUMMARY),
                 'generated_at' => Cache::get(self::CACHE_KEY_DAILY_SUMMARY_TIME, now()->toIso8601String()),
@@ -49,7 +53,7 @@ class AiInsightService
 
         // Cache summary until end of the current day to control API costs.
         // Warnings (missing key, rate limit, outage) are not cached, so fixing the cause takes effect at once.
-        if (! str_starts_with($summary, '⚠️')) {
+        if ($shareable && ! str_starts_with($summary, '⚠️')) {
             Cache::put(self::CACHE_KEY_DAILY_SUMMARY, $summary, now()->endOfDay());
             Cache::put(self::CACHE_KEY_DAILY_SUMMARY_TIME, $generatedAt, now()->endOfDay());
         }

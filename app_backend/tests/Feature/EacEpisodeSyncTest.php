@@ -34,7 +34,7 @@ class EacEpisodeSyncTest extends TestCase
         $facility = Facility::where('code', 'KCH-001')->firstOrFail();
 
         $this->labTech = User::create([
-            'name' => 'Lab Brian', 'email' => 'brian@clinic.org', 'role' => UserRole::LAB_TECHNICIAN,
+            'name' => 'Lab Brian', 'email' => 'brian@clinic.org', 'role' => UserRole::LAB_TECHNICIAN, 'facility_id' => $this->defaultFacilityId('KCH-001'),
             'password' => Hash::make('Password@123'), 'must_change_password' => false, 'is_active' => true,
         ]);
         $this->patient = $this->patient('ART-EAC-1', $facility);

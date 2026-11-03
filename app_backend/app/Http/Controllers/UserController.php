@@ -4,12 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
 use App\Models\AuditLog;
+use App\Models\Facility;
+use App\Models\TestingLaboratory;
+use App\Services\AccessScope;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -19,7 +23,7 @@ class UserController extends Controller
         /** @var User $currentUser */
         $currentUser = auth()->user();
 
-        $query = User::query()->with(['creator']);
+        $query = User::query()->with(['creator', 'facility', 'testingLaboratory']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -37,13 +41,10 @@ class UserController extends Controller
             $query->where('is_active', (bool) $request->input('status'));
         }
 
-        // Clinicians can only view clinicians, lab techs, and data clerks
+        // Clinicians see only the lab technicians and data clerks of their own facility.
         if ($currentUser->isClinician()) {
-            $query->whereIn('role', [
-                UserRole::CLINICIAN->value,
-                UserRole::LAB_TECHNICIAN->value,
-                UserRole::DATA_CLERK->value,
-            ]);
+            $query->whereIn('role', [UserRole::LAB_TECHNICIAN->value, UserRole::DATA_CLERK->value])
+                ->where('facility_id', $currentUser->facility_id ?: AccessScope::NO_MATCH);
         }
 
         $users = $query->latest()->paginate(15)->withQueryString();
@@ -52,7 +53,72 @@ class UserController extends Controller
             'users' => $users,
             'roles' => UserRole::cases(),
             'currentUser' => $currentUser,
+            // Administrators are warned about staff who would see no data until a facility is assigned.
+            'unassigned' => $currentUser->isAdmin()
+                ? User::where('is_active', true)->where('role', '!=', UserRole::ADMINISTRATOR->value)
+                    ->whereNull('facility_id')
+                    ->where(fn ($q) => $q->whereNull('testing_laboratory_id')->orWhere('role', '!=', UserRole::LAB_TECHNICIAN->value))
+                    ->orderBy('name')->get(['id', 'name', 'email', 'role'])
+                : collect(),
         ]);
+    }
+
+    /** Facility and laboratory choices for the staff forms. */
+    private function assignmentChoices(User $actor): array
+    {
+        return [
+            'facilitiesByCounty' => $actor->isAdmin()
+                ? Facility::with('county')->orderBy('name')->get()->groupBy(fn ($f) => $f->county?->name ?? 'Other')->sortKeys()
+                : collect(),
+            'standaloneLabs' => TestingLaboratory::active()->whereNull('facility_id')->get(['id', 'name']),
+            'ownFacility' => $actor->isAdmin() ? null : $actor->facility,
+        ];
+    }
+
+    /**
+     * The facility / laboratory a new or edited user gets, decided on the server (never trusting the form):
+     *  - administrators need no assignment;
+     *  - a clinician can only add staff to their own facility, whatever the request says;
+     *  - an administrator picks a facility (clinician, data clerk) or exactly one of facility / laboratory (lab technician).
+     *
+     * @return array{0: ?string, 1: ?string} [facility_id, testing_laboratory_id]
+     */
+    private function assignment(Request $request, User $actor, UserRole $role): array
+    {
+        if ($role === UserRole::ADMINISTRATOR) {
+            return [null, null];
+        }
+
+        if (! $actor->isAdmin()) {
+            if (! $actor->facility_id) {
+                abort(403, 'No facility assigned. Ask an administrator.');
+            }
+
+            return [$actor->facility_id, null];
+        }
+
+        $facilityId = $request->input('facility_id') ?: null;
+        $labId = $request->input('testing_laboratory_id') ?: null;
+
+        if ($role === UserRole::LAB_TECHNICIAN) {
+            if (($facilityId && $labId) || (! $facilityId && ! $labId)) {
+                throw ValidationException::withMessages(['facility_id' => 'A lab technician needs exactly one of: a facility, or a testing laboratory.']);
+            }
+        } else {
+            $labId = null;
+            if (! $facilityId) {
+                throw ValidationException::withMessages(['facility_id' => 'Choose the facility this staff member works at.']);
+            }
+        }
+
+        if ($facilityId && ! Facility::whereKey($facilityId)->exists()) {
+            throw ValidationException::withMessages(['facility_id' => 'The selected facility does not exist.']);
+        }
+        if ($labId && ! TestingLaboratory::whereKey($labId)->whereNull('facility_id')->exists()) {
+            throw ValidationException::withMessages(['testing_laboratory_id' => 'Choose a stand-alone testing laboratory such as the National Public Health Laboratory.']);
+        }
+
+        return [$facilityId, $labId];
     }
 
     public function create(): View
@@ -63,7 +129,7 @@ class UserController extends Controller
 
         return view('users.create', [
             'assignableRoles' => $assignableRoles,
-        ]);
+        ] + $this->assignmentChoices($currentUser));
     }
 
     public function store(Request $request): RedirectResponse
@@ -80,13 +146,17 @@ class UserController extends Controller
             'temporary_password' => ['nullable', 'string', 'min:8'],
         ]);
 
-        $tempPassword = $validated['temporary_password'] ?: 'Vilo@'.Str::upper(Str::random(5)).rand(100, 999);
+        [$facilityId, $labId] = $this->assignment($request, $currentUser, UserRole::from($validated['role']));
+
+        $tempPassword = ($validated['temporary_password'] ?? null) ?: 'Vilo@'.Str::upper(Str::random(5)).rand(100, 999);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'role' => UserRole::from($validated['role']),
+            'facility_id' => $facilityId,
+            'testing_laboratory_id' => $labId,
             'password' => Hash::make($tempPassword),
             'cached_password_hash' => Hash::make($tempPassword),
             'must_change_password' => true,
@@ -101,7 +171,7 @@ class UserController extends Controller
             tableName: 'users',
             recordId: (string) $user->id,
             oldValues: null,
-            newValues: ['name' => $user->name, 'email' => $user->email, 'role' => $user->role->value],
+            newValues: ['name' => $user->name, 'email' => $user->email, 'role' => $user->role->value, 'facility_id' => $facilityId, 'testing_laboratory_id' => $labId],
             userId: $currentUser->id
         );
 
@@ -121,7 +191,7 @@ class UserController extends Controller
         return view('users.edit', [
             'user' => $user,
             'assignableRoles' => $currentUser->role->assignableRoles(),
-        ]);
+        ] + $this->assignmentChoices($currentUser));
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -143,12 +213,16 @@ class UserController extends Controller
             'is_active' => ['required', 'boolean'],
         ]);
 
+        [$facilityId, $labId] = $this->assignment($request, $currentUser, UserRole::from($validated['role']));
+
         $oldValues = [
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,
             'role' => $user->role instanceof UserRole ? $user->role->value : $user->role,
             'is_active' => $user->is_active,
+            'facility_id' => $user->facility_id,
+            'testing_laboratory_id' => $user->testing_laboratory_id,
         ];
 
         $user->update([
@@ -156,6 +230,8 @@ class UserController extends Controller
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'role' => UserRole::from($validated['role']),
+            'facility_id' => $facilityId,
+            'testing_laboratory_id' => $labId,
             'is_active' => (bool) $validated['is_active'],
             'last_modified_at' => now(),
         ]);

@@ -21,7 +21,7 @@ class BackgroundSyncTest extends TestCase
     {
         parent::setUp();
         $this->user = User::create([
-            'name' => 'Clin', 'email' => 'clin@example.org', 'role' => UserRole::CLINICIAN,
+            'name' => 'Clin', 'email' => 'clin@example.org', 'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => 'Password-12345', 'must_change_password' => false, 'is_active' => true,
         ]);
     }

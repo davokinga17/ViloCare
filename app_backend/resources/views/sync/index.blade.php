@@ -12,9 +12,11 @@
         @endif
     </div>
     <div class="page-actions">
+        @if(auth()->user()->isAdmin())
         <a href="{{ route('sync.conflicts') }}" class="btn btn-secondary">
             <span>⚖️</span> Conflict History ({{ $stats['total_conflicts'] }})
         </a>
+        @endif
         @unless($stats['central'] ?? false)
         <form method="POST" action="{{ route('sync.trigger') }}" style="display: inline;">
             @csrf
@@ -186,7 +188,7 @@
                         ✅ <strong>Data Safety Guarantee:</strong> {{ $errDetails['action_hint'] ?? 'Local offline data is safely preserved in SQLite.' }}
                     </div>
 
-                    @if(!empty($errDetails['raw_error']))
+                    @if(!empty($errDetails['raw_error']) && auth()->user()->isAdmin())
                         <details style="margin-top: 10px; font-size: 0.8rem; color: #6b7280; cursor: pointer;">
                             <summary style="font-weight: 600; color: #b45309;">Technical Diagnostic Details (For IT / System Administrator)</summary>
                             <div style="margin-top: 6px; padding: 8px; background: #ffffff; border: 1px solid #fde68a; border-radius: 4px; font-family: monospace; font-size: 0.75rem; word-break: break-all; color: #374151;">

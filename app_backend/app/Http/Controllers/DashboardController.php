@@ -12,6 +12,7 @@ use App\Models\SampleCollection;
 use App\Models\State;
 use App\Models\User;
 use App\Models\ViralLoadResult;
+use App\Services\AccessScope;
 use App\Services\DashboardChartsService;
 use App\Services\SuppressionService;
 use App\Services\VlDueService;
@@ -27,9 +28,9 @@ class DashboardController extends Controller
         $user = auth()->user();
 
         // 1. Location hierarchy lists (South Sudan: State -> County -> Facility)
-        $states = State::orderBy('name')->get();
-        $counties = County::with('state')->orderBy('name')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
+        $states = State::allowed()->orderBy('name')->get();
+        $counties = County::allowed()->with('state')->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         $defaultFacility = ClinicDefaults::facility($facilities);
 
@@ -42,6 +43,28 @@ class DashboardController extends Controller
             $selectedStateId = $request->input('state_id') ?: 'all';
             $selectedCountyId = $request->input('county_id') ?: 'all';
             $selectedFacilityId = $request->input('facility_id') ?: 'all';
+        }
+
+        // A filter can only narrow the user's access: anything outside the allowed lists falls back to "all".
+        if ($selectedFacilityId !== 'all' && ! $facilities->contains('id', $selectedFacilityId)) {
+            $selectedFacilityId = 'all';
+        }
+        if ($selectedCountyId !== 'all' && ! $counties->contains('id', $selectedCountyId)) {
+            $selectedCountyId = 'all';
+        }
+        if ($selectedStateId !== 'all' && ! $states->contains('id', $selectedStateId)) {
+            $selectedStateId = 'all';
+        }
+
+        // A filter can only narrow the user's access: anything outside the allowed lists falls back to "all".
+        if ($selectedFacilityId !== 'all' && ! $facilities->contains('id', $selectedFacilityId)) {
+            $selectedFacilityId = 'all';
+        }
+        if ($selectedCountyId !== 'all' && ! $counties->contains('id', $selectedCountyId)) {
+            $selectedCountyId = 'all';
+        }
+        if ($selectedStateId !== 'all' && ! $states->contains('id', $selectedStateId)) {
+            $selectedStateId = 'all';
         }
 
         // Validate hierarchy integrity
@@ -109,6 +132,7 @@ class DashboardController extends Controller
         };
 
         $location = ['state_id' => $selectedStateId, 'county_id' => $selectedCountyId, 'facility_id' => $selectedFacilityId];
+        $location = AccessScope::current()->narrowLocation($location);
         $from = $startDate && $endDate ? $startDate->toDateString() : null;
         $to = $startDate && $endDate ? $endDate->toDateString() : null;
 
@@ -155,7 +179,7 @@ class DashboardController extends Controller
             'eac_sessions_complete' => $charts['eac']['counts']['sessions_completed'],
             'today_appointments' => $charts['workload']['bars'][0]['count'],
             'pending_samples' => $charts['workload']['bars'][1]['count'],
-            'total_staff' => User::where('is_active', true)->count(),
+            'total_staff' => User::where('is_active', true)->visibleToCurrentUser()->count(),
             'pending_sync_count' => Patient::where('sync_status', 'pending')->count()
                 + ViralLoadResult::where('sync_status', 'pending')->count()
                 + SampleCollection::where('sync_status', 'pending')->count()
@@ -177,7 +201,9 @@ class DashboardController extends Controller
         $applyLocation($todayAppointmentsQuery, false);
         $todayAppointments = $todayAppointmentsQuery->take(8)->get();
 
-        $recentActivities = AuditLog::with('user')->latest()->take(6)->get();
+        $recentActivities = AuditLog::with('user')
+            ->when(! AccessScope::current()->isAll(), fn ($q) => $q->where('user_id', $user->id))
+            ->latest()->take(6)->get();
 
         return view('dashboard.index', [
             'user' => $user,

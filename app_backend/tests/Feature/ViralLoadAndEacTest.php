@@ -32,7 +32,7 @@ class ViralLoadAndEacTest extends TestCase
         $this->clinician = User::create([
             'name' => 'Dr. Mercy',
             'email' => 'mercy@clinic.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -41,7 +41,7 @@ class ViralLoadAndEacTest extends TestCase
         $this->labTech = User::create([
             'name' => 'Lab Brian',
             'email' => 'brian@clinic.org',
-            'role' => UserRole::LAB_TECHNICIAN,
+            'role' => UserRole::LAB_TECHNICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -50,7 +50,7 @@ class ViralLoadAndEacTest extends TestCase
         $this->dataClerk = User::create([
             'name' => 'Clerk Sarah',
             'email' => 'sarah@clinic.org',
-            'role' => UserRole::DATA_CLERK,
+            'role' => UserRole::DATA_CLERK, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,

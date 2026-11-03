@@ -142,6 +142,7 @@ class AuthAndUserManagementTest extends TestCase
             'email' => 'jane@clinic.org',
             'phone' => '+254711223344',
             'role' => UserRole::CLINICIAN->value,
+            'facility_id' => $this->defaultFacilityId(),
             'temporary_password' => 'TempClinicPass1',
         ]);
 
@@ -149,6 +150,7 @@ class AuthAndUserManagementTest extends TestCase
         $this->assertDatabaseHas('users', [
             'email' => 'jane@clinic.org',
             'role' => UserRole::CLINICIAN->value,
+            'facility_id' => $this->defaultFacilityId(),
             'must_change_password' => true,
             'created_by' => $admin->id,
         ]);
@@ -159,7 +161,7 @@ class AuthAndUserManagementTest extends TestCase
         $clinician = User::create([
             'name' => 'Dr. Mercy',
             'email' => 'mercy@clinic.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('DoctorPass123'),
             'must_change_password' => false,
             'is_active' => true,

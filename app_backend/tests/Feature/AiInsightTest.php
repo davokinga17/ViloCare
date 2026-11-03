@@ -40,7 +40,7 @@ class AiInsightTest extends TestCase
         $this->clinician = User::create([
             'name' => 'Dr. Elizabeth',
             'email' => 'clinician@vilocare.org',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -49,7 +49,7 @@ class AiInsightTest extends TestCase
         $this->dataClerk = User::create([
             'name' => 'Clerk John',
             'email' => 'clerk@vilocare.org',
-            'role' => UserRole::DATA_CLERK,
+            'role' => UserRole::DATA_CLERK, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -58,7 +58,7 @@ class AiInsightTest extends TestCase
         $this->labTech = User::create([
             'name' => 'Tech Sarah',
             'email' => 'lab@vilocare.org',
-            'role' => UserRole::LAB_TECHNICIAN,
+            'role' => UserRole::LAB_TECHNICIAN, 'facility_id' => $this->defaultFacilityId(),
             'password' => Hash::make('Password@123'),
             'must_change_password' => false,
             'is_active' => true,
@@ -184,20 +184,20 @@ class AiInsightTest extends TestCase
     public function test_manual_trigger_summary_generation_and_caching_flow(): void
     {
         // 1. Initial manual generation (without force refresh if empty will generate and cache)
-        $resp1 = $this->actingAs($this->clinician)->getJson(route('insights.summary.get'));
+        $resp1 = $this->actingAs($this->admin)->getJson(route('insights.summary.get'));
         $resp1->assertStatus(200);
         $resp1->assertJsonPath('success', true);
         $resp1->assertJsonPath('from_cache', false);
 
         // 2. Second retrieval without force refresh returns from cache (e.g. after user dismissed and re-clicks Generate)
-        $resp2 = $this->actingAs($this->clinician)->getJson(route('insights.summary.get'));
+        $resp2 = $this->actingAs($this->admin)->getJson(route('insights.summary.get'));
         $resp2->assertStatus(200);
         $resp2->assertJsonPath('success', true);
         $resp2->assertJsonPath('from_cache', true);
         $this->assertEquals($resp1->json('summary'), $resp2->json('summary'));
 
         // 3. Forced refresh regenerates and updates cache
-        $resp3 = $this->actingAs($this->clinician)->postJson(route('insights.summary.generate'), [
+        $resp3 = $this->actingAs($this->admin)->postJson(route('insights.summary.generate'), [
             'force_refresh' => true,
         ]);
         $resp3->assertStatus(200);

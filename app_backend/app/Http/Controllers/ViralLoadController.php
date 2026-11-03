@@ -77,7 +77,7 @@ class ViralLoadController extends Controller
         }
 
         $patients = Patient::where('status', 'active')->orderBy('first_name')->get();
-        $clinicians = User::whereIn('role', ['clinician', 'administrator'])->get();
+        $clinicians = User::whereIn('role', ['clinician', 'administrator'])->visibleToCurrentUser()->get();
 
         // Open EAC episode per patient, so the form can say up front what a result will do.
         $openEacByPatient = EacEpisode::whereIn('status', EacEpisode::OPEN_STATUSES)

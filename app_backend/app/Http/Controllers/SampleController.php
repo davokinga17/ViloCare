@@ -43,7 +43,7 @@ class SampleController extends Controller
         }
 
         $samples = $query->paginate(15)->withQueryString();
-        $facilities = Facility::orderBy('name')->get();
+        $facilities = Facility::allowed()->orderBy('name')->get();
 
         $totalCount = SampleCollection::count();
         $receivedCount = SampleCollection::whereIn('status', ['received_at_lab', 'processed'])->count();
@@ -74,8 +74,8 @@ class SampleController extends Controller
         }
 
         $patients = Patient::where('status', 'active')->orderBy('first_name')->get();
-        $facilities = Facility::with('county.state')->orderBy('name')->get();
-        $collectors = User::where('is_active', true)->orderBy('name')->get();
+        $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
+        $collectors = User::where('is_active', true)->visibleToCurrentUser()->orderBy('name')->get();
         $suggestedCode = SampleCollection::generateSampleCode();
 
         return view('samples.create', [
@@ -103,7 +103,8 @@ class SampleController extends Controller
         ]);
 
         $patient = Patient::findOrFail($validated['patient_id']);
-        $facilityId = $validated['facility_id'] ?? $patient->facility_id;
+        // A sample always belongs to its patient's facility (a submitted facility_id is ignored).
+        $facilityId = $patient->facility_id;
         $facility = Facility::find($facilityId);
         $facilityCode = $validated['health_facility_code'] ?? $facility?->code;
         $userId = auth()->id();
@@ -115,7 +116,7 @@ class SampleController extends Controller
             'sample_type' => $validated['sample_type'],
             'facility_id' => $facilityId,
             'health_facility_code' => $facilityCode,
-            'collector_id' => $validated['collector_id'] ?? $userId,
+            'collector_id' => ($validated['collector_id'] ?? null) && User::visibleToCurrentUser()->whereKey($validated['collector_id'])->exists() ? $validated['collector_id'] : $userId,
             'collector_name' => $validated['collector_name'] ?? null,
             'status' => $validated['status'] ?? 'collected',
             'notes' => $validated['notes'] ?? null,

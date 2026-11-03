@@ -326,7 +326,7 @@ class MultiComputerSafetyTest extends TestCase
     public function test_only_admins_can_change_device_settings_and_central_cannot(): void
     {
         $clinician = User::create([
-            'name' => 'Clin', 'email' => 'clin@vilocare.org', 'role' => UserRole::CLINICIAN,
+            'name' => 'Clin', 'email' => 'clin@vilocare.org', 'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId('KCH-001'),
             'password' => bcrypt('Password-12345'), 'must_change_password' => false, 'is_active' => true,
         ]);
         $this->actingAs($clinician)->put(route('settings.device.update'), ['device_id' => 'juba-clinic-2'])->assertForbidden();

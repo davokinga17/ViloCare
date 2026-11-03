@@ -27,6 +27,8 @@ class User extends Authenticatable
         'email',
         'phone',
         'role',
+        'facility_id',
+        'testing_laboratory_id',
         'password',
         'cached_password_hash',
         'must_change_password',
@@ -63,6 +65,36 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'last_modified_at' => 'datetime',
         ];
+    }
+
+    /** Staff the logged-in user may see: everyone for ALL scope, else users of in-scope facilities, plus themself. */
+    public function scopeVisibleToCurrentUser($query)
+    {
+        $scope = \App\Services\AccessScope::current();
+        if ($scope->isAll()) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($scope) {
+            $q->whereIn($this->getTable().'.facility_id', $scope->facilityIds())
+                ->orWhere($this->getTable().'.id', auth()->id());
+        });
+    }
+
+    public function facility(): BelongsTo
+    {
+        return $this->belongsTo(Facility::class);
+    }
+
+    public function testingLaboratory(): BelongsTo
+    {
+        return $this->belongsTo(TestingLaboratory::class);
+    }
+
+    /** A non-administrator with neither a facility nor a laboratory sees no data (see AccessScope). */
+    public function needsAssignment(): bool
+    {
+        return ! $this->isAdmin() && ! $this->facility_id && ! ($this->isLabTech() && $this->testing_laboratory_id);
     }
 
     public function creator(): BelongsTo
@@ -121,7 +153,10 @@ class User extends Authenticatable
         }
 
         if ($this->isClinician()) {
-            return $targetUser->hasRole(UserRole::LAB_TECHNICIAN, UserRole::DATA_CLERK);
+            // Only lab technicians and data clerks of the clinician's OWN facility.
+            return $targetUser->hasRole(UserRole::LAB_TECHNICIAN, UserRole::DATA_CLERK)
+                && $this->facility_id !== null
+                && $targetUser->facility_id === $this->facility_id;
         }
 
         return false;

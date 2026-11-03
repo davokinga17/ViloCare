@@ -15,6 +15,14 @@
     </div>
 </div>
 
+@if($unassigned->isNotEmpty())
+<div class="alert alert-warning" style="margin-bottom: 20px; padding: 14px 18px; border: 1px solid #f59e0b; background: #fffbeb; border-radius: 8px; color: #92400e;">
+    <strong>⚠️ {{ $unassigned->count() }} staff account(s) have no facility assigned and see no data:</strong>
+    {{ $unassigned->pluck("name")->implode(", ") }}.
+    Edit each account to assign a facility (or run <code>php artisan vilocare:assign-user-facility EMAIL FACILITY_CODE</code>).
+</div>
+@endif
+
 <!-- Filters -->
 <div class="card" style="margin-bottom: 20px;">
     <div class="card-body" style="padding: 16px 20px;">
@@ -55,6 +63,7 @@
                 <tr>
                     <th>Staff Name & Email</th>
                     <th>Role</th>
+                    <th>Facility</th>
                     <th>Phone</th>
                     <th>Status</th>
                     <th>Temporary Password?</th>
@@ -93,6 +102,17 @@
                             <span class="badge {{ $roleBadge }}">
                                 {{ $user->role instanceof \App\Enums\UserRole ? $user->role->label() : ucfirst($user->role) }}
                             </span>
+                        </td>
+                        <td>
+                            @if($user->facility)
+                                {{ $user->facility->name }}
+                            @elseif($user->testingLaboratory)
+                                {{ $user->testingLaboratory->name }} (laboratory)
+                            @elseif(($user->role->value ?? (string) $user->role) === 'administrator')
+                                <span style="color: #64748b;">All facilities</span>
+                            @else
+                                <span class="badge badge-warning">⚠️ Not assigned</span>
+                            @endif
                         </td>
                         <td>{{ $user->phone ?? '—' }}</td>
                         <td>
@@ -143,7 +163,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 32px; color: #64748b;">
+                        <td colspan="8" style="text-align: center; padding: 32px; color: #64748b;">
                             No staff accounts found matching your query.
                         </td>
                     </tr>

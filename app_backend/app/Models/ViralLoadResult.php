@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ViralLoadResult extends Model
 {
-    use Auditable, HasFactory, HasUuidAndSync;
+    use Auditable, HasFactory, HasUuidAndSync, \App\Traits\ScopedByFacility;
+
+    protected static string $facilityScopeKind = 'patient_id';
 
     protected $fillable = [
         'id',

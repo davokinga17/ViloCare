@@ -42,7 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/password/change', [PasswordChangeController::class, 'update'])->name('password.change.update');
 
     // Protected Routes (enforces must_change_password)
-    Route::middleware('password.changed')->group(function () {
+    Route::middleware(['password.changed', 'facility.assigned'])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('home');
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -127,14 +127,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports/due-list', [ReportController::class, 'dueList'])->name('reports.due-list');
         Route::get('/reports/verify', [ReportController::class, 'verify'])->name('reports.verify');
 
-        // Module 11: Sync Engine Center (All Staff for view/sync, Admin/Clinician for conflict resolution)
+        // Module 11: Sync Engine Center (all staff see the status page; conflict details are administrators only)
+        Route::middleware('access.unscoped')->group(function () {
         Route::get('/sync', [SyncController::class, 'index'])->name('sync.index');
         Route::post('/sync/trigger', [SyncController::class, 'triggerSync'])->name('sync.trigger');
         Route::get('/sync/status-check', [SyncController::class, 'statusCheck'])->name('sync.status-check');
-        Route::get('/sync/conflicts', [SyncController::class, 'conflicts'])->name('sync.conflicts');
-        Route::post('/sync/conflicts/{conflict}/resolve', [SyncController::class, 'resolveConflict'])
-            ->middleware('role:administrator,clinician')
-            ->name('sync.conflicts.resolve');
+        // Conflict history holds raw record payloads (patient data from every facility): administrators only.
+        Route::middleware('role:administrator')->group(function () {
+            Route::get('/sync/conflicts', [SyncController::class, 'conflicts'])->name('sync.conflicts');
+            Route::post('/sync/conflicts/{conflict}/resolve', [SyncController::class, 'resolveConflict'])->name('sync.conflicts.resolve');
+        });
+        });
 
         // Module 12: AI-Powered Insights & Staff Q&A Assistant (Admin, Clinician only)
         Route::middleware('role:administrator,clinician')->group(function () {

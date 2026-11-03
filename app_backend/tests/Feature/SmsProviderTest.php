@@ -412,7 +412,7 @@ class SmsProviderTest extends TestCase
     public function test_composing_a_long_message_warns_about_the_extra_part(): void
     {
         $this->fakeTwilioGateway();
-        $clinician = User::create(['name' => 'Dr J', 'email' => 'j@example.org', 'role' => UserRole::CLINICIAN, 'password' => 'Password-12345', 'must_change_password' => false, 'is_active' => true]);
+        $clinician = User::create(['name' => 'Dr J', 'email' => 'j@example.org', 'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId('KCH-001'), 'password' => 'Password-12345', 'must_change_password' => false, 'is_active' => true]);
 
         $response = $this->actingAs($clinician)->post(route('notifications.store'), [
             'patient_id' => $this->patient->id, 'recipient_phone' => '0911000001', 'category' => 'custom',
@@ -498,7 +498,7 @@ class SmsProviderTest extends TestCase
 
     public function test_sms_actions_are_admin_only(): void
     {
-        $clinician = User::create(['name' => 'Dr J', 'email' => 'j@example.org', 'role' => UserRole::CLINICIAN, 'password' => 'Password-12345', 'must_change_password' => false, 'is_active' => true]);
+        $clinician = User::create(['name' => 'Dr J', 'email' => 'j@example.org', 'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId('KCH-001'), 'password' => 'Password-12345', 'must_change_password' => false, 'is_active' => true]);
         Http::fake();
 
         $this->actingAs($clinician)->postJson(route('settings.integrations.sms.send-test'), ['sms_provider' => 'twilio', 'test_phone' => '0911000001'])->assertForbidden();

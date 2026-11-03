@@ -20,7 +20,7 @@ class CameraCaptureTest extends TestCase
 
     private function user(): User
     {
-        return User::create(['name' => 'Dr Jane', 'email' => 'jane@example.org', 'role' => UserRole::CLINICIAN, 'password' => 'Password-12345', 'must_change_password' => false, 'is_active' => true]);
+        return User::create(['name' => 'Dr Jane', 'email' => 'jane@example.org', 'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId(), 'password' => 'Password-12345', 'must_change_password' => false, 'is_active' => true]);
     }
 
     public function test_profile_take_photo_uses_the_reusable_camera_button_with_a_versioned_script(): void

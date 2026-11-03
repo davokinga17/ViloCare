@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SampleRejection extends Model
 {
-    use HasFactory, HasUuidAndSync, Auditable;
+    use HasFactory, HasUuidAndSync, Auditable, \App\Traits\ScopedByFacility;
+
+    protected static string $facilityScopeKind = 'sample_id';
 
     protected $fillable = [
         'id',

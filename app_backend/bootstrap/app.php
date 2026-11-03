@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Middleware\EnsureFacilityAssigned;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureUserRole;
+use App\Http\Middleware\UnscopedAccess;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +22,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserRole::class,
             'password.changed' => EnsurePasswordChanged::class,
+            'access.unscoped' => UnscopedAccess::class,
+            'facility.assigned' => EnsureFacilityAssigned::class,
         ]);
 
         $middleware->appendToGroup('web', [

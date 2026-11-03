@@ -51,7 +51,7 @@ class SmsNotificationTest extends TestCase
             'name' => 'Dr. Jane Clinician',
             'email' => 'jane@vilocare.org',
             'phone' => '+254711000002',
-            'role' => UserRole::CLINICIAN,
+            'role' => UserRole::CLINICIAN, 'facility_id' => $this->defaultFacilityId('KCH-001'),
             'password' => bcrypt('Jane@123456'),
             'must_change_password' => false,
             'is_active' => true,

@@ -59,6 +59,7 @@
                 </div>
             </div>
 
+@include('users._assignment', ['user' => null])
             <div class="form-group">
                 <label for="temporary_password" class="form-label">Custom Temporary Password (Optional)</label>
                 <input type="text" id="temporary_password" name="temporary_password" value="{{ old('temporary_password') }}" class="form-control" placeholder="Leave blank to auto-generate a secure random password">

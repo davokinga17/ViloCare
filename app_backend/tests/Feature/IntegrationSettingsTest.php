@@ -52,7 +52,7 @@ class IntegrationSettingsTest extends TestCase
         return User::create([
             'name' => ucfirst($role->value),
             'email' => $role->value.'@example.org',
-            'role' => $role,
+            'role' => $role, 'facility_id' => $this->defaultFacilityId(),
             'password' => 'Password-12345',
             'must_change_password' => false,
             'is_active' => true,

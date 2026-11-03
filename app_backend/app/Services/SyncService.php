@@ -531,6 +531,18 @@ class SyncService
             }
         }
 
+        // A user's assignment points at reference data. If it cannot be resolved here it is left empty
+        // (the user then sees "No facility assigned"): access fails closed, and the user row still syncs.
+        if ($tableName === 'users') {
+            if (!empty($data['facility_id'])) {
+                $data['facility_id'] = $this->resolveLocationId('facilities', (string) $data['facility_id'], $idMappings);
+            }
+            if (!empty($data['testing_laboratory_id'])
+                && !DB::table('testing_laboratories')->where('id', $data['testing_laboratory_id'])->exists()) {
+                $data['testing_laboratory_id'] = null;
+            }
+        }
+
         if ($tableName === 'sample_collections') {
             $facilityId = !empty($data['facility_id'])
                 ? $this->resolveLocationId('facilities', (string) $data['facility_id'], $idMappings)
@@ -688,7 +700,7 @@ class SyncService
 
         if (!$existingRecord) {
             // Brand new record created offline -> insert on server
-            $insertData = $this->remapForeignKeys($tableName, $recordData, $idMappings);
+            $insertData = $this->onlyKnownColumns($tableName, $this->remapForeignKeys($tableName, $recordData, $idMappings));
             $insertData['sync_status'] = SyncStatus::SYNCED->value;
             $insertData['last_modified_at'] = $incomingLastModified;
             $insertData['updated_at'] = now();
@@ -707,7 +719,7 @@ class SyncService
 
         if ($incomingLastModified->greaterThanOrEqualTo($existingLastModified)) {
             // Incoming client record is newer or equal -> Client wins!
-            $updateData = $this->remapForeignKeys($tableName, $recordData, $idMappings);
+            $updateData = $this->onlyKnownColumns($tableName, $this->remapForeignKeys($tableName, $recordData, $idMappings));
             unset($updateData['id']); // Preserve canonical server primary key!
             $updateData['sync_status'] = SyncStatus::SYNCED->value;
             $updateData['last_modified_at'] = $incomingLastModified;
@@ -756,8 +768,11 @@ class SyncService
      * Backward compatible: an older client that sends only `since` simply receives the first page.
      *
      * @param array|null $resume ['table' => ..., 'updated_at' => ..., 'id' => ...] continuation point
+     * @param string|null $clientVersion X-Client-Version of the requesting app. null = internal call, send
+     *                                   everything. '' (header missing) or below sync.versioned_features.min_version
+     *                                   = old app: tables/columns it does not have are left out.
      */
-    public function processServerPull(?string $since = null, ?array $resume = null): array
+    public function processServerPull(?string $since = null, ?array $resume = null, ?string $clientVersion = null): array
     {
         $sinceDateTime = $this->normalizeSince($since);
 
@@ -769,8 +784,12 @@ class SyncService
         $totalRecords = 0;
         $next = null;
 
+        $oldClient = $clientVersion !== null && !$this->supportsVersionedFeatures($clientVersion);
+        $hiddenTables = $oldClient ? (array) config('sync.versioned_features.tables', []) : [];
+        $hiddenColumns = $oldClient ? (array) config('sync.versioned_features.columns', []) : [];
+
         foreach ($this->syncedModels as $tableName => $modelClass) {
-            if (!class_exists($modelClass)) {
+            if (!class_exists($modelClass) || in_array($tableName, $hiddenTables, true)) {
                 continue;
             }
 
@@ -803,7 +822,10 @@ class SyncService
                 $records = $records->take($this->batchSize);
             }
 
-            $tablesData[$tableName] = $records->map(fn ($r) => $r->getAttributes())->values()->toArray();
+            $drop = array_flip($hiddenColumns[$tableName] ?? []);
+            $tablesData[$tableName] = $records
+                ->map(fn ($r) => $drop === [] ? $r->getAttributes() : array_diff_key($r->getAttributes(), $drop))
+                ->values()->toArray();
             $totalRecords += $records->count();
 
             if ($hasMore) {
@@ -829,6 +851,34 @@ class SyncService
             'next' => $next,
         ];
     }
+
+    /**
+     * True when the app version knows the tables/columns listed in sync.versioned_features.
+     * An empty version (header missing) is an old app. A pre-release suffix is ignored (1.1.3-beta.1 = 1.1.3).
+     */
+    public function supportsVersionedFeatures(string $clientVersion): bool
+    {
+        $version = trim(ltrim(trim($clientVersion), 'vV'));
+        if ($version === '' || !preg_match('/^\d+(\.\d+){0,2}/', $version, $m)) {
+            return false;
+        }
+
+        return version_compare($m[0], (string) config('sync.versioned_features.min_version', '1.1.3'), '>=');
+    }
+
+    /**
+     * Drops attributes that have no column in this database (written by a newer app), so one unknown
+     * column never fails the whole record. Column lists are cached per table for the process.
+     */
+    protected function onlyKnownColumns(string $table, array $data): array
+    {
+        $this->knownColumns[$table] ??= array_flip(Schema::getColumnListing($table));
+
+        return $this->knownColumns[$table] === [] ? $data : array_intersect_key($data, $this->knownColumns[$table]);
+    }
+
+    /** @var array<string, array<string, int>> column names per table, looked up once per SyncService instance */
+    protected array $knownColumns = [];
 
     /**
      * Normalizes a client-supplied cursor into the server's (UTC) database time.
@@ -965,7 +1015,7 @@ class SyncService
             }
         }
 
-        $data = $this->remapForeignKeys($tableName, $remoteData, $idMappings);
+        $data = $this->onlyKnownColumns($tableName, $this->remapForeignKeys($tableName, $remoteData, $idMappings));
 
         if (!$localRecord) {
             // Brand new record from server -> insert locally
