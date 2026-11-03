@@ -68,6 +68,15 @@
         <div class="stat-val" style="font-size: 1.6rem; color: #2563eb;">{{ number_format($stats['due_vl']) }}</div>
         <div class="stat-desc">Next 30 days</div>
     </div>
+
+    <div class="stat-card" style="padding: 16px; border-left: 4px solid #64748b;">
+        <div class="stat-header">
+            <span class="stat-label">Patient Transfers</span>
+            <div class="stat-icon-wrapper" style="background-color: #f1f5f9; color: #475569;">↔</div>
+        </div>
+        <div class="stat-val" style="font-size: 1.6rem; color: #334155;">{{ number_format($stats['transfers']['in']) }} in / {{ number_format($stats['transfers']['out']) }} out</div>
+        <div class="stat-desc">{{ $stats['transfers']['pending_in'] }} incoming and {{ $stats['transfers']['pending_out'] }} outgoing pending</div>
+    </div>
 </div>
 
 <!-- Visual Trends: Monthly Suppression Trend & Age Cohort Breakdown -->

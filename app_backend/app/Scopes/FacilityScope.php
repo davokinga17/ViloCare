@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Scope;
  *   patient_id  a table that belongs to a patient through patient_id
  *   sample      sample_collections (own facility, or the patient's)
  *   sample_id   a table that belongs to a sample through sample_collection_id
+ *   transfer    patient_transfers: visible to the sending AND the receiving facility
  */
 class FacilityScope implements Scope
 {
@@ -31,6 +32,7 @@ class FacilityScope implements Scope
             'patient_id' => $builder->whereIn($table.'.patient_id', $scope->patientIds()),
             'sample' => $scope->constrainSamples($builder, $table.'.'),
             'sample_id' => $builder->whereIn($table.'.sample_collection_id', $scope->sampleIds()),
+            'transfer' => $scope->constrainTransfers($builder, $table.'.'),
         };
     }
 }

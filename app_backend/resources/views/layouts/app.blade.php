@@ -86,6 +86,18 @@
             </a>
             @endif
 
+            @if(auth()->user()->hasRole(\App\Enums\UserRole::ADMINISTRATOR, \App\Enums\UserRole::CLINICIAN, \App\Enums\UserRole::DATA_CLERK))
+            @php
+                $pendingIncomingTransfers = \App\Models\PatientTransfer::where('status', 'pending')
+                    ->when(! auth()->user()->isAdmin(), fn ($q) => $q->where('to_facility_id', auth()->user()->facility_id))
+                    ->count();
+            @endphp
+            <a href="{{ route('transfers.incoming') }}" class="sidebar-link {{ request()->routeIs('transfers.*') ? 'is-active' : '' }}">
+                <span class="sidebar-icon">TR</span>
+                <span>Transfers {{ $pendingIncomingTransfers > 0 ? '('.$pendingIncomingTransfers.' waiting)' : '' }}</span>
+            </a>
+            @endif
+
             <div class="sidebar-section">Insights & Admin</div>
 
             <a href="{{ route('reports.index') }}" class="sidebar-link {{ request()->routeIs('reports.*') ? 'is-active' : '' }}">

@@ -68,6 +68,11 @@
                         💊 Switch Regimen
                     </a>
                 @endif
+                @if($patient->status === 'active' && in_array(auth()->user()->role->value, ['administrator', 'clinician']))
+                    <a href="#transfer-out-card" class="btn btn-secondary">
+                        ➡️ Transfer out
+                    </a>
+                @endif
                 <a href="{{ route('patients.edit', $patient) }}" class="btn btn-secondary">
                     ✏️ Edit Demographics
                 </a>
@@ -416,6 +421,55 @@
                 </table>
             </div>
         </div>
+
+        @if($patient->hasPendingTransfer())
+            <div class="card" style="border-left: 4px solid #f59e0b; background: #fffbeb;">
+                <div class="card-body">
+                    <strong>Transfer out pending.</strong> This patient is read-only until the receiving facility accepts the transfer or you cancel it under
+                    <a href="{{ route('transfers.outgoing') }}">Transferred out patients</a>.
+                </div>
+            </div>
+        @elseif($patient->status === 'active' && in_array(auth()->user()->role->value, ['administrator', 'clinician']))
+            <div class="card" id="transfer-out-card">
+                <div class="card-header"><h2 class="card-title">➡️ Transfer out to another facility</h2></div>
+                <div class="card-body">
+                    <form method="POST" action="{{ route('transfers.store', $patient) }}">
+                        @csrf
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="to_facility_id" class="form-label">Receiving facility <span class="required">*</span></label>
+                                <select id="to_facility_id" name="to_facility_id" required class="form-select">
+                                    <option value="">-- Select facility --</option>
+                                    @foreach(\App\Http\Controllers\TransferController::destinations($patient) as $countyName => $countyFacilities)
+                                        <optgroup label="{{ $countyName }}">
+                                            @foreach($countyFacilities as $facility)
+                                                <option value="{{ $facility->id }}">{{ $facility->name }}</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endforeach
+                                </select>
+                                @error('to_facility_id') <div class="form-help" style="color:#b91c1c;">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="form-group">
+                                <label for="transfer_date" class="form-label">Transfer date <span class="required">*</span></label>
+                                <input type="date" id="transfer_date" name="transfer_date" value="{{ old('transfer_date', now()->toDateString()) }}" max="{{ now()->toDateString() }}" required class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="letter_reference" class="form-label">Transfer-out letter reference</label>
+                            <input type="text" id="letter_reference" name="letter_reference" value="{{ old('letter_reference') }}" maxlength="120" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="transfer_notes" class="form-label">Notes</label>
+                            <input type="text" id="transfer_notes" name="notes" value="{{ old('notes') }}" maxlength="500" class="form-control">
+                            <div class="form-help">The patient stays on your list as transferred out (read-only, not due) until the receiving facility accepts. The ART number does not change.</div>
+                        </div>
+                        @error('patient') <div class="form-help" style="color:#b91c1c;">{{ $message }}</div> @enderror
+                        <button type="submit" class="btn btn-primary">Record transfer out</button>
+                    </form>
+                </div>
+            </div>
+        @endif
 
         <!-- Switch Regimen Form Card -->
         <div class="card" id="switch-regimen-card">

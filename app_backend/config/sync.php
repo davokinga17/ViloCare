@@ -120,6 +120,8 @@ return [
         'testing_laboratories' => \App\Models\TestingLaboratory::class,
         'users' => \App\Models\User::class,
         'patients' => \App\Models\Patient::class,
+        // Patient hand-overs reference patients and facilities, so they follow patients.
+        'patient_transfers' => \App\Models\PatientTransfer::class,
         'regimen_histories' => \App\Models\RegimenHistory::class,
         'viral_load_results' => \App\Models\ViralLoadResult::class,
         'eac_episodes' => \App\Models\EacEpisode::class,

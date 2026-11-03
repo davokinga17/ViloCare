@@ -11,6 +11,8 @@ class RegimenHistoryController extends Controller
 {
     public function store(Request $request, Patient $patient): RedirectResponse
     {
+        $patient->assertWritableBy($request->user());
+
         $validated = $request->validate([
             'regimen_name' => ['required', 'string', 'max:150'],
             'regimen_line' => ['required', 'string', 'in:1st Line,2nd Line,3rd Line'],

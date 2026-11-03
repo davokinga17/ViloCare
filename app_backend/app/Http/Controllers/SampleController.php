@@ -103,6 +103,7 @@ class SampleController extends Controller
         ]);
 
         $patient = Patient::findOrFail($validated['patient_id']);
+        $patient->assertWritableBy(auth()->user());
         // A sample always belongs to its patient's facility (a submitted facility_id is ignored).
         $facilityId = $patient->facility_id;
         $facility = Facility::find($facilityId);

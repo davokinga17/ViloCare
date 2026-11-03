@@ -17,6 +17,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\SyncSettingsController;
+use App\Http\Controllers\TransferController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ViralLoadController;
 use Illuminate\Support\Facades\Route;
@@ -62,6 +63,18 @@ Route::middleware('auth')->group(function () {
             Route::post('/patients/{patient}/regimen', [RegimenHistoryController::class, 'store'])
                 ->middleware('role:administrator,clinician')
                 ->name('patients.regimen.store');
+        });
+
+        // Patient transfers between facilities. Transfer out / cancel: administrators and clinicians of the sending
+        // facility. Incoming list and accept: administrators, clinicians and data clerks of the receiving facility.
+        Route::middleware('role:administrator,clinician')->group(function () {
+            Route::post('/patients/{patient}/transfer-out', [TransferController::class, 'store'])->name('transfers.store');
+            Route::post('/transfers/{transfer}/cancel', [TransferController::class, 'cancel'])->name('transfers.cancel');
+        });
+        Route::middleware('role:administrator,clinician,data_clerk')->group(function () {
+            Route::get('/transfers/incoming', [TransferController::class, 'incoming'])->name('transfers.incoming');
+            Route::get('/transfers/outgoing', [TransferController::class, 'outgoing'])->name('transfers.outgoing');
+            Route::post('/transfers/{transfer}/accept', [TransferController::class, 'accept'])->name('transfers.accept');
         });
 
         // Viral Load Engine (Admin, Clinician, Lab Technician)

@@ -96,6 +96,31 @@ class Patient extends Model
             ->latestOfMany(['sample_date', 'created_at']);
     }
 
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(PatientTransfer::class)->withoutGlobalScopes()->latest('transfer_date');
+    }
+
+    private ?bool $pendingTransferCache = null;
+
+    /** True while a transfer out of this patient waits for the receiving facility to accept it. */
+    public function hasPendingTransfer(): bool
+    {
+        return $this->pendingTransferCache ??= PatientTransfer::withoutGlobalScopes()
+            ->where('patient_id', $this->id)->where('status', PatientTransfer::PENDING)->exists();
+    }
+
+    /**
+     * A patient with a pending transfer out is read-only at the sending facility (only an administrator can
+     * still change it). Call before any write that belongs to this patient.
+     */
+    public function assertWritableBy(User $user): void
+    {
+        if (! $user->isAdmin() && $this->hasPendingTransfer()) {
+            abort(403, 'This patient has a pending transfer out and is read-only. Cancel the transfer to make changes.');
+        }
+    }
+
     public function eacEpisodes(): HasMany
     {
         return $this->hasMany(EacEpisode::class)->latest();

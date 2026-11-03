@@ -35,6 +35,36 @@ class ReportController extends Controller
         ];
     }
 
+    /**
+     * Transfers out and in for the selected location (all of the user's scope when nothing is selected).
+     * Counts only: "out" = leaving a facility in the selection, "in" = going to one.
+     *
+     * @return array{out: int, in: int, pending_out: int, pending_in: int, accepted_in: int}
+     */
+    private function transferCounts(string $stateId, string $countyId, string $facilityId): array
+    {
+        // With nothing selected a restricted user still only counts their own scope.
+        $ids = \App\Services\AccessScope::current()->allowedFacilityIds();
+        if ($facilityId !== 'all') {
+            $ids = \App\Services\AccessScope::current()->allowsFacility($facilityId) ? [$facilityId] : [];
+        } elseif ($countyId !== 'all' || $stateId !== 'all') {
+            $ids = Facility::allowed()
+                ->when($countyId !== 'all', fn ($q) => $q->where('county_id', $countyId))
+                ->when($countyId === 'all' && $stateId !== 'all', fn ($q) => $q->whereIn('county_id', \App\Models\County::where('state_id', $stateId)->select('id')))
+                ->pluck('id')->all();
+        }
+
+        $base = fn (string $column) => \App\Models\PatientTransfer::query()
+            ->when($ids !== null, fn ($q) => $q->whereIn($column, $ids));
+
+        return [
+            'out' => $base('from_facility_id')->where('status', '!=', 'cancelled')->count(),
+            'in' => $base('to_facility_id')->where('status', 'accepted')->count(),
+            'pending_out' => $base('from_facility_id')->where('status', 'pending')->count(),
+            'pending_in' => $base('to_facility_id')->where('status', 'pending')->count(),
+        ];
+    }
+
     public function index(Request $request, AnalyticsService $analyticsService, VlDueService $vlDueService, SuppressionService $suppressionService): View
     {
         // 1. Location hierarchy lists
@@ -138,6 +168,7 @@ class ReportController extends Controller
             'vl_coverage_percent' => $suppression['vl_coverage_percent'],
             'active_eac' => $activeEac,
             'due_vl' => $dueForVl,
+            'transfers' => $this->transferCounts($selectedStateId, $selectedCountyId, $selectedFacilityId),
         ];
 
         // 3. Analytics Visual Trends (Monthly Suppression Trend & Cohort Breakdown)

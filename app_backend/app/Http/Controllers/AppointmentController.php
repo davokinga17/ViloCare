@@ -100,6 +100,7 @@ class AppointmentController extends Controller
         ]);
 
         $patient = Patient::findOrFail($validated['patient_id']);
+        $patient->assertWritableBy(auth()->user());
         $userId = auth()->id();
 
         $appointment = Appointment::create([

@@ -215,6 +215,8 @@ class PatientController extends Controller
 
     public function edit(Patient $patient): View
     {
+        $patient->assertWritableBy(auth()->user());
+
         $facilities = Facility::allowed()->with('county.state')->orderBy('name')->get();
 
         return view('patients.edit', [
@@ -225,6 +227,7 @@ class PatientController extends Controller
 
     public function update(Request $request, Patient $patient): RedirectResponse
     {
+        $patient->assertWritableBy($request->user());
         $this->fixFacilityForRestrictedUser($request, $patient->facility_id);
 
         $validated = $request->validate([

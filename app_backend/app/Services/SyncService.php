@@ -45,6 +45,7 @@ class SyncService
      */
     protected array $userForeignKeyColumns = [
         'patients' => ['created_by'],
+        'patient_transfers' => ['requested_by', 'accepted_by'],
         'regimen_histories' => ['recorded_by'],
         'viral_load_results' => ['requesting_clinician_id', 'recorded_by'],
         'eac_episodes' => [],
@@ -70,6 +71,7 @@ class SyncService
             'testing_laboratories' => \App\Models\TestingLaboratory::class,
             'users' => \App\Models\User::class,
             'patients' => \App\Models\Patient::class,
+            'patient_transfers' => \App\Models\PatientTransfer::class,
             'regimen_histories' => \App\Models\RegimenHistory::class,
             'viral_load_results' => \App\Models\ViralLoadResult::class,
             'eac_episodes' => \App\Models\EacEpisode::class,
@@ -526,6 +528,18 @@ class SyncService
                         ?? throw new UnresolvedLocationException(
                             "Patient references {$column} {$data[$column]} which does not exist in this database's location list. "
                             . 'The patient was NOT moved to another location. Run location reconciliation (vilocare:reconcile-locations), then sync again.'
+                        );
+                }
+            }
+        }
+
+        // A transfer names two facilities. Like a patient's location, one that cannot be resolved is never guessed.
+        if ($tableName === 'patient_transfers') {
+            foreach (['from_facility_id', 'to_facility_id'] as $column) {
+                if (!empty($data[$column])) {
+                    $data[$column] = $this->resolveLocationId('facilities', (string) $data[$column], $idMappings)
+                        ?? throw new UnresolvedLocationException(
+                            "Transfer references {$column} {$data[$column]} which does not exist in this database's facility list. Run location reconciliation (vilocare:reconcile-locations), then sync again."
                         );
                 }
             }

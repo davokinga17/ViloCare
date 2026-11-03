@@ -80,9 +80,14 @@ class SyncClientVersionCompatibilityTest extends TestCase
         $old = $this->pull('1.1.2');
         $new = $this->pull('1.1.3');
 
-        $this->assertSame(array_keys($new['tables']), array_keys($old['tables']), 'no table is lost (patient_transfers arrives in a later release)');
+        $this->assertArrayHasKey('patient_transfers', $new['tables']);
+        $this->assertArrayNotHasKey('patient_transfers', $old['tables'], 'a 1.1.2 app has no such table');
+        $this->assertSame(
+            array_keys(array_diff_key($new['tables'], ['patient_transfers' => 1])),
+            array_keys($old['tables']),
+            'no other table is lost'
+        );
         $this->assertSame(array_keys($new['tables']['facilities'][0]), array_keys($old['tables']['facilities'][0]));
-        $this->assertSame($new['total_records'], $old['total_records']);
     }
 
     public function test_the_full_sync_endpoint_also_strips_for_old_apps(): void

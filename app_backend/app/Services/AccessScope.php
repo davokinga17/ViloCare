@@ -215,6 +215,23 @@ final class AccessScope
         });
     }
 
+    /** A transfer is visible to the facility it leaves and the facility it goes to. */
+    public function constrainTransfers($query, string $prefix = ''): void
+    {
+        if ($this->isAll()) {
+            return;
+        }
+        if ($this->isNone()) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+        $query->where(function ($q) use ($prefix) {
+            $q->whereIn($prefix.'from_facility_id', $this->facilityIds())
+                ->orWhereIn($prefix.'to_facility_id', $this->facilityIds());
+        });
+    }
+
     public function allowsFacility(?string $facilityId): bool
     {
         if ($this->isAll()) {

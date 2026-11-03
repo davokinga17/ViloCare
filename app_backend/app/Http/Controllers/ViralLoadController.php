@@ -124,6 +124,7 @@ class ViralLoadController extends Controller
         $resultValue = (bool)($validated['is_target_not_detected'] ?? false) ? 0 : (int)$validated['result_value'];
 
         $patient = Patient::findOrFail($validated['patient_id']);
+        $patient->assertWritableBy(auth()->user());
 
         // is_post_eac_repeat / eac_episode_id are never read from the form: the engine decides them
         // from the patient's open EAC episode and its session progress.
