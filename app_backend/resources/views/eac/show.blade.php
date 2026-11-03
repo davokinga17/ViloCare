@@ -126,8 +126,8 @@
                             @if($i < 3)
                                 <div class="form-group">
                                     <label for="next_session_date" class="form-label">Next Session Scheduled Date</label>
-                                    <input type="date" id="next_session_date" name="next_session_date" value="{{ old('next_session_date', now()->addDays(14)->toDateString()) }}" class="form-control">
-                                    <div class="form-help">Typically 2 weeks following this session.</div>
+                                    <input type="date" id="next_session_date" name="next_session_date" value="{{ old('next_session_date', now()->addDays((int) config('vilocare.eac.session_gap_days'))->toDateString()) }}" class="form-control">
+                                    <div class="form-help">Typically {{ (int) config('vilocare.eac.session_gap_days') }} days following this session.</div>
                                 </div>
                             @endif
                         </div>

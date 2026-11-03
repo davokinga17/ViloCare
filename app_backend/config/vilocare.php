@@ -15,4 +15,16 @@ return [
     */
     'clinic_name' => env('VILOCARE_CLINIC_NAME'),
 
+    /*
+    | EAC schedule (confirmed by the client). All values are whole days.
+    |  first_session_delay_days: session 1 = high viral load result date + this (0 = same day).
+    |  session_gap_days:         session 2 = session 1 date + this; session 3 = session 2 date + this.
+    |  repeat_vl_days:           repeat viral load = session 3 date + this.
+    */
+    'eac' => [
+        'first_session_delay_days' => (int) env('VILOCARE_EAC_FIRST_SESSION_DELAY_DAYS', 0),
+        'session_gap_days' => (int) env('VILOCARE_EAC_SESSION_GAP_DAYS', 30),
+        'repeat_vl_days' => (int) env('VILOCARE_EAC_REPEAT_VL_DAYS', 30),
+    ],
+
 ];

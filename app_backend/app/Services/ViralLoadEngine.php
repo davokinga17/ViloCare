@@ -347,8 +347,9 @@ class ViralLoadEngine
         $result->eac_episode_id = $episode->id;
         $result->save();
 
-        // Schedule Session 1 (typically 14 days after result)
-        $session1Date = Carbon::parse($result->result_date)->addDays(14);
+        // Session 1 counts from the day the result is ENTERED (today), plus the configured delay, NOT from
+        // the lab's result_date: a result entered late must not create a session that is already weeks overdue.
+        $session1Date = app(EacSchedule::class)->firstSessionDate(today());
         $episode->sessions()->create([
             'patient_id' => $patient->id,
             'session_number' => 1,

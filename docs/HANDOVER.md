@@ -46,6 +46,8 @@ The previous server stays running until step 9. Do not reorder.
 
 **Per-installation defaults (optional, Render and clinic `.env`):** `VILOCARE_DEFAULT_FACILITY_CODE` is the facility code the dashboard opens on (built-in default is the pilot clinic's code; empty means the first facility). `VILOCARE_CLINIC_NAME` is the name printed on the report verification page (empty means the default facility's name). Set both to your own clinic's values.
 
+**EAC schedule (optional, whole days):** the client-confirmed rules are the defaults. Session 1 is the day the high result is entered (`VILOCARE_EAC_FIRST_SESSION_DELAY_DAYS=0`); sessions 2 and 3 are 30 days after the previous session's actual date (`VILOCARE_EAC_SESSION_GAP_DAYS=30`); the repeat viral load is 30 days after session 3's actual date (`VILOCARE_EAC_REPEAT_VL_DAYS=30`). A counsellor-picked next-session date is always honoured. Changing a value affects only new sessions. To move dates already stored, run `php artisan vilocare:eac-reschedule-preview` (read-only: counts and ART numbers only), then `php artisan vilocare:eac-reschedule` (dry run) and, once reviewed, `php artisan vilocare:eac-reschedule --apply`. It changes only pending sessions and repeat-VL due dates still waiting for a result, and only dates strictly in the future (a date that is today or past is never moved, and nothing is moved into the past). It writes a row backup to `storage/app/backups/` first (git-ignored; in the installed app this is the per-user data folder) and audits each change.
+
 No database column is encrypted with `APP_KEY`, so the new server does not need the old key; a new key only signs everyone out.
 
 ## 4. Rotating the sync token

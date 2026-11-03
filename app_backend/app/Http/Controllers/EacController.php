@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\EacEpisode;
 use App\Models\EacSession;
+use App\Services\EacSchedule;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -104,7 +105,7 @@ class EacController extends Controller
         // 2. Automated session progression workflow
         if ($session->session_number < 3) {
             $nextNumber = $session->session_number + 1;
-            $nextDate = $validated['next_session_date'] ?? Carbon::parse($validated['session_date'])->addDays(14)->toDateString();
+            $nextDate = $validated['next_session_date'] ?? app(EacSchedule::class)->nextSessionDate($validated['session_date'])->toDateString();
 
             // Ensure next session exists or create it
             $existingNext = $episode->sessions()->where('session_number', $nextNumber)->first();
@@ -131,7 +132,7 @@ class EacController extends Controller
             }
         } elseif ($session->session_number === 3) {
             // 3rd session completed: automatically schedule repeat VL test
-            $repeatVlDate = Carbon::parse($validated['session_date'])->addMonths(1)->toDateString();
+            $repeatVlDate = app(EacSchedule::class)->repeatVlDate($validated['session_date'])->toDateString();
 
             $episode->update([
                 'status' => 'sessions_completed',
