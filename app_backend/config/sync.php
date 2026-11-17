@@ -175,6 +175,16 @@ return [
         'columns' => [
             'users' => ['facility_id', 'testing_laboratory_id'],
         ],
+
+        // Added by later releases. Each group has its own first version; apps below it never receive these columns.
+        // 1.1.4 = the release that adds the recovery email for self-service password reset.
+        'later' => [
+            [
+                'min_version' => '1.1.4',
+                'tables' => [],
+                'columns' => ['users' => ['recovery_email', 'recovery_email_verified_at']],
+            ],
+        ],
     ],
 
 ];

@@ -193,4 +193,65 @@ class SyncClientVersionCompatibilityTest extends TestCase
         $this->assertTrue($service->supportsVersionedFeatures('1.10.0'), 'compared as numbers, not text');
         $this->assertTrue($service->supportsVersionedFeatures('1.1.3-beta.2'));
     }
+
+    public function test_recovery_email_columns_reach_only_apps_from_1_1_4(): void
+    {
+        User::where('email', 'clin@compat.test')->first()
+            ->forceFill(['recovery_email' => 'real@example.org', 'recovery_email_verified_at' => now()])->save();
+
+        foreach (['1.1.4', 'v1.1.4', '1.2.0', '2.0.0'] as $version) {
+            $row = $this->userRow($this->pull($version));
+            $this->assertSame('real@example.org', $row['recovery_email'], "{$version} gets the recovery email");
+            $this->assertArrayHasKey('recovery_email_verified_at', $row);
+            $this->assertArrayHasKey('facility_id', $row);
+        }
+
+        // 1.1.3 knows the facility fields but not the recovery email; 1.1.2 and older know neither.
+        $row = $this->userRow($this->pull('1.1.3'));
+        $this->assertArrayHasKey('facility_id', $row, '1.1.3 still gets the facility fields');
+        $this->assertArrayNotHasKey('recovery_email', $row);
+        $this->assertArrayNotHasKey('recovery_email_verified_at', $row);
+
+        foreach (['1.1.2', '1.1.0', '1.0.9', '', 'garbage'] as $version) {
+            $row = $this->userRow($this->pull($version === '' ? null : $version));
+            $this->assertArrayNotHasKey('recovery_email', $row, "{$version} must not get the recovery email");
+            $this->assertArrayNotHasKey('recovery_email_verified_at', $row);
+            $this->assertArrayNotHasKey('facility_id', $row);
+            $this->assertSame('clin@compat.test', $row['email']);
+        }
+    }
+
+    public function test_the_account_token_table_is_never_synced(): void
+    {
+        $this->assertNotContains('account_tokens', array_keys($this->pull('1.1.4')['tables']));
+        $this->assertNotContains('account_tokens', array_keys($this->pull('1.1.3')['tables']));
+        $this->assertNotContains('account_tokens', array_keys($this->pull(null)['tables']));
+    }
+
+    public function test_the_secret_token_hash_and_login_columns_are_not_part_of_the_user_row_additions(): void
+    {
+        $row = $this->userRow($this->pull('1.1.4'));
+        $this->assertArrayNotHasKey('token_hash', $row);
+    }
+
+    public function test_an_old_app_pushing_a_user_does_not_erase_the_recovery_email(): void
+    {
+        $user = User::where('email', 'clin@compat.test')->first();
+        $user->forceFill(['recovery_email' => 'real@example.org', 'recovery_email_verified_at' => now()])->save();
+        $row = (array) \Illuminate\Support\Facades\DB::table('users')->where('id', $user->id)->first();
+        unset($row['recovery_email'], $row['recovery_email_verified_at'], $row['facility_id'], $row['testing_laboratory_id']);
+        $row['phone'] = '+211999000222';
+        $row['last_modified_at'] = now()->addMinute()->toDateTimeString();
+
+        foreach (['1.1.2', '1.1.3'] as $version) {
+            $this->postJson('/api/v1/sync/push', [
+                'device_id' => 'old-computer', 'timestamp' => now()->toIso8601String(), 'tables' => ['users' => [$row]],
+            ], ['X-Sync-Token' => self::TOKEN, 'X-Client-Version' => $version])->assertOk();
+        }
+
+        $user->refresh();
+        $this->assertSame('+211999000222', $user->phone);
+        $this->assertSame('real@example.org', $user->recovery_email);
+        $this->assertNotNull($user->recovery_email_verified_at);
+    }
 }

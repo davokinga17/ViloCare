@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\SyncConflict;
 use App\Services\BackgroundSyncLauncher;
 use App\Services\SyncService;
+use App\Services\SyncStateStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,6 +98,39 @@ class SyncController extends Controller
         }
 
         return redirect()->route('sync.index')->with($alreadyRunning || $started ? 'success' : 'warning', $message);
+    }
+
+    /**
+     * "Re-pull everything" (administrators): the next sync ignores the stored pull cursor and downloads every
+     * record again. Safe because pulling is idempotent; local unsynced edits are never overwritten.
+     */
+    public function repullEverything(BackgroundSyncLauncher $launcher): RedirectResponse
+    {
+        if ($this->syncService->isCentral()) {
+            return redirect()->route('sync.index')
+                ->with('warning', 'This is the central server. Clinic computers pull from it; it does not pull.');
+        }
+
+        (new SyncStateStore())->requestFullRepull('requested by administrator');
+
+        AuditLog::log(
+            action: 'requested_full_repull',
+            tableName: 'sync_conflicts',
+            recordId: 'SYNC-REPULL',
+            oldValues: null,
+            newValues: ['mode' => 'full_repull'],
+            userId: auth()->id()
+        );
+
+        $started = false;
+        if (! $this->syncService->runStatus()['running']) {
+            $this->syncService->markRunRequested();
+            $started = $launcher->start();
+        }
+
+        return redirect()->route('sync.index')->with('success', $started
+            ? 'Re-pulling everything from the central server in the background. You can keep working.'
+            : 'Everything will be re-pulled on the next sync (it runs automatically every minute).');
     }
 
     /**

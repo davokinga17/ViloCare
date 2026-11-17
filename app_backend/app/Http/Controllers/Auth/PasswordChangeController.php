@@ -7,7 +7,7 @@ use App\Models\AuditLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
+use App\Support\PasswordRules;
 use Illuminate\View\View;
 
 class PasswordChangeController extends Controller
@@ -30,7 +30,7 @@ class PasswordChangeController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'string', 'confirmed', PasswordRules::rule()],
         ]);
 
         if (!Hash::check($validated['current_password'], $user->password)) {

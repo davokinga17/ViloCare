@@ -15,6 +15,13 @@
     </div>
 </div>
 
+@if($mailNotConfigured ?? false)
+<div class="alert alert-warning" style="margin-bottom: 20px; padding: 14px 18px; border: 1px solid #f59e0b; background: #fffbeb; border-radius: 8px; color: #92400e;">
+    <strong>✉️ Email is not configured.</strong>
+    Password reset and recovery-email confirmation emails cannot be sent until the mail settings are set on the server (see docs/HANDOVER.md). The administrator "Reset Pass" button still works.
+</div>
+@endif
+
 @if($unassigned->isNotEmpty())
 <div class="alert alert-warning" style="margin-bottom: 20px; padding: 14px 18px; border: 1px solid #f59e0b; background: #fffbeb; border-radius: 8px; color: #92400e;">
     <strong>⚠️ {{ $unassigned->count() }} staff account(s) have no facility assigned and see no data:</strong>
@@ -66,6 +73,7 @@
                     <th>Facility</th>
                     <th>Phone</th>
                     <th>Status</th>
+                    <th>Recovery Email</th>
                     <th>Temporary Password?</th>
                     <th>Created By</th>
                     <th style="text-align: right;">Actions</th>
@@ -123,6 +131,15 @@
                             @endif
                         </td>
                         <td>
+                            @if(! $user->recovery_email)
+                                <span class="badge badge-secondary" title="No recovery email">None</span>
+                            @elseif($user->recovery_email_verified_at)
+                                <span class="badge badge-success">Verified</span>
+                            @else
+                                <span class="badge badge-warning">Unverified</span>
+                            @endif
+                        </td>
+                        <td>
                             @if($user->must_change_password)
                                 <span class="badge badge-warning">⚠️ Must Reset on Login</span>
                             @else
@@ -146,6 +163,14 @@
                                             🔑 Reset Pass
                                         </button>
                                     </form>
+                                    @if($currentUser->isAdmin() && $user->recovery_email && ! $user->recovery_email_verified_at)
+                                        <form action="{{ route('users.resend-verification', $user) }}" method="POST">
+                                            @csrf
+                                            <button type="submit" class="btn btn-secondary btn-sm" title="Send the recovery email confirmation link again">
+                                                ✉️ {{ $user->isPendingInvite() ? 'Resend invite' : 'Resend verification' }}
+                                            </button>
+                                        </form>
+                                    @endif
                                     @if($user->id !== $currentUser->id && $user->is_active)
                                         <form action="{{ route('users.destroy', $user) }}" method="POST" onsubmit="return confirm('Deactivate this staff account?');">
                                             @csrf
@@ -163,7 +188,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" style="text-align: center; padding: 32px; color: #64748b;">
+                        <td colspan="9" style="text-align: center; padding: 32px; color: #64748b;">
                             No staff accounts found matching your query.
                         </td>
                     </tr>

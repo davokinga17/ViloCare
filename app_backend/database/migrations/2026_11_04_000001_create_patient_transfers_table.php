@@ -42,6 +42,9 @@ return new class extends Migration
             $table->index(['from_facility_id', 'status']);
             $table->index('sync_status');
         });
+
+        // Transfers that already exist centrally have old timestamps: pull them once from the start.
+        (new \App\Services\SyncStateStore())->requestFullRepullIfPulledBefore('patient_transfers table created');
     }
 
     public function down(): void

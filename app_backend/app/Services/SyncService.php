@@ -31,6 +31,16 @@ class SyncService
     protected array $pullOnlyTables;
 
     /**
+     * Columns added to synced tables by app updates. Add a column here when a migration adds it, so rows whose
+     * timestamp has not changed still receive the value during the full re-pull the migration requests.
+     *
+     * @var array<string, array<int, string>>
+     */
+    protected array $backfillColumns = [
+        'users' => ['facility_id', 'testing_laboratory_id', 'recovery_email', 'recovery_email_verified_at'],
+    ];
+
+    /**
      * Business-unique (natural) keys for models that define domain uniqueness
      * beyond primary key UUIDs. Used to reconcile independent creations or seeds.
      */
@@ -673,6 +683,12 @@ class SyncService
 
             DB::commit();
 
+            try {
+                $this->flushRecoveryVerifications();
+            } catch (\Throwable $e) {
+                Log::warning('Recovery email verification dispatch failed: ' . get_class($e));
+            }
+
             return [
                 'success' => true,
                 'status' => 'processed',
@@ -685,6 +701,55 @@ class SyncService
             DB::rollBack();
             Log::error('Server Sync Push Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             throw $e;
+        }
+    }
+
+    /** @var array<int, string> users whose recovery email needs a verification message once the push is committed */
+    protected array $verificationQueue = [];
+
+    /**
+     * A client can never mark a recovery email as verified: only the link in the email can. The verified
+     * timestamp is kept only while the address is unchanged; an older app (no such column) changes nothing.
+     */
+    protected function guardRecoveryEmail(array $data, ?Model $existing): array
+    {
+        if (!array_key_exists('recovery_email', $data)) {
+            unset($data['recovery_email_verified_at']);
+
+            return $data;
+        }
+
+        $incoming = is_string($data['recovery_email']) ? mb_strtolower(trim($data['recovery_email'])) : null;
+        $current = $existing?->recovery_email;
+        $same = $incoming !== null && $incoming !== '' && $current !== null && mb_strtolower($current) === $incoming;
+
+        $data['recovery_email_verified_at'] = $same ? $existing->getRawOriginal('recovery_email_verified_at') : null;
+
+        return $data;
+    }
+
+    protected function queueRecoveryVerification(Model $user): void
+    {
+        if ($user->getTable() === 'users' && $user->recovery_email && !$user->recovery_email_verified_at) {
+            $this->verificationQueue[$user->id] = $user->id;
+        }
+    }
+
+    /** Sends the queued verification emails (central server only; the mailer does nothing elsewhere). */
+    protected function flushRecoveryVerifications(): void
+    {
+        $ids = array_values($this->verificationQueue);
+        $this->verificationQueue = [];
+        if ($ids === []) {
+            return;
+        }
+
+        $tokens = app(AccountTokenService::class);
+        $mailer = app(AccountMailer::class);
+        foreach (\App\Models\User::whereIn('id', $ids)->get() as $user) {
+            if (!$tokens->hasLive($user, AccountTokenService::VERIFY)) {
+                $mailer->sendVerification($user);
+            }
         }
     }
 
@@ -718,10 +783,14 @@ class SyncService
             $insertData['sync_status'] = SyncStatus::SYNCED->value;
             $insertData['last_modified_at'] = $incomingLastModified;
             $insertData['updated_at'] = now();
+            if ($tableName === 'users') {
+                $insertData = $this->guardRecoveryEmail($insertData, null);
+            }
 
             $newModel = new $modelClass;
             $newModel->forceFill($insertData);
             $newModel->saveQuietly();
+            $this->queueRecoveryVerification($newModel);
 
             return null;
         }
@@ -738,9 +807,13 @@ class SyncService
             $updateData['sync_status'] = SyncStatus::SYNCED->value;
             $updateData['last_modified_at'] = $incomingLastModified;
             $updateData['updated_at'] = now();
+            if ($tableName === 'users') {
+                $updateData = $this->guardRecoveryEmail($updateData, $existingRecord);
+            }
 
             $existingRecord->forceFill($updateData);
             $existingRecord->saveQuietly();
+            $this->queueRecoveryVerification($existingRecord);
 
             if ($matchedByBusinessKey) {
                 $this->recordConflict(
@@ -798,9 +871,7 @@ class SyncService
         $totalRecords = 0;
         $next = null;
 
-        $oldClient = $clientVersion !== null && !$this->supportsVersionedFeatures($clientVersion);
-        $hiddenTables = $oldClient ? (array) config('sync.versioned_features.tables', []) : [];
-        $hiddenColumns = $oldClient ? (array) config('sync.versioned_features.columns', []) : [];
+        [$hiddenTables, $hiddenColumns] = $this->hiddenFeaturesFor($clientVersion);
 
         foreach ($this->syncedModels as $tableName => $modelClass) {
             if (!class_exists($modelClass) || in_array($tableName, $hiddenTables, true)) {
@@ -864,6 +935,49 @@ class SyncService
             'has_more' => $next !== null,
             'next' => $next,
         ];
+    }
+
+    /**
+     * Tables and columns the given app version does not have: every versioned feature group whose first
+     * version is above it. null = internal call, nothing is hidden.
+     *
+     * @return array{0: array<int, string>, 1: array<string, array<int, string>>}
+     */
+    public function hiddenFeaturesFor(?string $clientVersion): array
+    {
+        if ($clientVersion === null) {
+            return [[], []];
+        }
+
+        $config = (array) config('sync.versioned_features', []);
+        $groups = array_merge(
+            [['min_version' => $config['min_version'] ?? '1.1.3', 'tables' => $config['tables'] ?? [], 'columns' => $config['columns'] ?? []]],
+            (array) ($config['later'] ?? [])
+        );
+
+        $tables = [];
+        $columns = [];
+        foreach ($groups as $group) {
+            if ($this->versionAtLeast($clientVersion, (string) ($group['min_version'] ?? '1.1.3'))) {
+                continue;
+            }
+            $tables = array_merge($tables, (array) ($group['tables'] ?? []));
+            foreach ((array) ($group['columns'] ?? []) as $table => $names) {
+                $columns[$table] = array_values(array_unique(array_merge($columns[$table] ?? [], (array) $names)));
+            }
+        }
+
+        return [array_values(array_unique($tables)), $columns];
+    }
+
+    protected function versionAtLeast(string $clientVersion, string $minimum): bool
+    {
+        $version = trim(ltrim(trim($clientVersion), 'vV'));
+        if ($version === '' || !preg_match('/^\d+(\.\d+){0,2}/', $version, $m)) {
+            return false;
+        }
+
+        return version_compare($m[0], $minimum, '>=');
     }
 
     /**
@@ -1058,6 +1172,22 @@ class SyncService
 
                     return 'applied';
                 }
+            }
+
+            // Identical timestamps mean identical content, so a listed column that is empty here but filled in the
+            // cloud copy is one this computer did not have before an app update (e.g. users.facility_id). Fill
+            // those gaps (never overwriting a value). Only listed columns: elsewhere an empty value can be deliberate.
+            $current = $localRecord->getAttributes();
+            $gaps = [];
+            foreach ($this->backfillColumns[$tableName] ?? [] as $column) {
+                if (!empty($data[$column]) && array_key_exists($column, $current) && $current[$column] === null) {
+                    $gaps[$column] = $data[$column];
+                }
+            }
+            if ($gaps !== []) {
+                DB::table($tableName)->where('id', $localRecord->id)->update($gaps);
+
+                return 'applied';
             }
 
             return 'unchanged';
@@ -1601,6 +1731,11 @@ class SyncService
      */
     protected function pullAll(string $endpoint, array $httpOptions, bool $full): array
     {
+        // A migration (or an administrator) may have asked for a one-time full re-pull.
+        if ($this->state->consumeFullRepullRequest()) {
+            $full = true;
+        }
+
         if ($full) {
             $this->state->forget('pull_cursor');
             $this->state->forget('pull_progress');

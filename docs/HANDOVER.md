@@ -50,6 +50,33 @@ The previous server stays running until step 9. Do not reorder.
 
 No database column is encrypted with `APP_KEY`, so the new server does not need the old key; a new key only signs everyone out.
 
+## 3a. Email for password reset (owner, one time)
+
+Staff can reset a forgotten password themselves, and confirm a recovery email, only if the **central server** can send email. Clinic computers never send email. Until this is set up everything keeps working and the administrator "Reset Pass" button stays the way to help someone; the Users page shows "Email is not configured".
+
+1. Create a **dedicated Gmail account** just for ViLoCare (not a personal one).
+2. Turn on **2-Step Verification** for it (Google Account, Security).
+3. Create an **app password** (Google Account, Security, 2-Step Verification, App passwords) named `ViLoCare Render`. Google shows 16 characters once. Do not send them to anyone.
+4. In the Render service, open the **Environment** tab and add these by hand (they are `sync:false`, so none of them is in the repository):
+
+   | Variable | Value |
+   |---|---|
+   | `MAIL_MAILER` | `smtp` |
+   | `MAIL_HOST` | `smtp.gmail.com` |
+   | `MAIL_PORT` | `587` (STARTTLS; leave `MAIL_SCHEME` unset. Port 587 upgrades to an encrypted connection by itself. Only for port 465 set `MAIL_SCHEME=smtps`.) |
+   | `MAIL_USERNAME` | the full Gmail address |
+   | `MAIL_PASSWORD` | the app password from step 3 |
+   | `MAIL_FROM_ADDRESS` | the same Gmail address |
+   | `MAIL_FROM_NAME` | `ViLoCare` |
+
+   `APP_URL` must be the public HTTPS address of the service: links in the emails are built from it.
+5. Save; Render restarts the service. To check, open the Render **Shell** if your plan has one and run `php artisan vilocare:mail-test your.own@address`. It prints only "Success" or the error class. If there is no shell, use "Forgot password?" on the website with an account whose recovery email is verified.
+6. A normal Gmail account can send about **500 emails a day**. Each reset or confirmation is one email, which is plenty for a clinic network; if one day is exceeded, Google blocks sending until the next day (administrators can still use "Reset Pass").
+
+**Two ways to add staff** (Users, Add New Staff, on the website once email works): *Invite by email* for someone with a real personal email (they get a link, valid 7 days, to choose their own password; no temporary password exists, and opening it confirms the address), or *No real email* (placeholder sign-in email and a temporary password as before; a recovery email can be added later).
+
+How it works for staff: an administrator (or the user, in *My Profile* with their password) sets a **recovery email**; a confirmation link (24 hours, works once) is sent to it. A reset is only ever sent to a **confirmed** recovery email, never to the sign-in email (many sign-in emails are placeholders). The reset link lasts 60 minutes and works once. If someone asks for a reset and has no confirmed recovery email, nothing is sent and an audit entry `reset_requested_no_recovery_email` is written for the administrators.
+
 ## 4. Rotating the sync token
 
 1. Make a long random value, for example `php -r "echo bin2hex(random_bytes(32));"`.

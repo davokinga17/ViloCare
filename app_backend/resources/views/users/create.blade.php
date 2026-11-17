@@ -28,6 +28,21 @@
                 <input type="text" id="name" name="name" value="{{ old('name') }}" required class="form-control" placeholder="e.g. Dr. Jane Doe or Alex Mukasa">
             </div>
 
+            @if($canInvite ?? false)
+            <div class="form-group">
+                <label class="form-label">How will this person get access?</label>
+                <label style="display: block; margin-bottom: 6px;">
+                    <input type="radio" name="access_mode" value="invite" {{ old('access_mode', 'invite') === 'invite' ? 'checked' : '' }}>
+                    <strong>Invite by email</strong>: they have a real personal email. They get a link to choose their own password; no temporary password is created.
+                </label>
+                <label style="display: block;">
+                    <input type="radio" name="access_mode" value="temporary" {{ old('access_mode') === 'temporary' ? 'checked' : '' }}>
+                    <strong>No real email</strong>: use a placeholder sign-in email and a temporary password (a recovery email can be added later).
+                </label>
+                <div class="form-help">With an invitation, the Email Address below must be their real mailbox: it is their sign-in and recovery email.</div>
+            </div>
+            @endif
+
             <div class="form-grid">
                 <div class="form-group">
                     <label for="email" class="form-label">Email Address <span class="required">*</span></label>
@@ -40,6 +55,14 @@
                     <input type="tel" inputmode="tel" id="phone" name="phone" value="{{ old('phone') }}" class="form-control" placeholder="+211910000000">
                 </div>
             </div>
+
+            @if(auth()->user()->isAdmin())
+            <div class="form-group">
+                <label for="recovery_email" class="form-label">Recovery Email (for password reset, optional)</label>
+                <input type="email" id="recovery_email" name="recovery_email" value="{{ old('recovery_email') }}" class="form-control" maxlength="255" placeholder="a real mailbox the person can open">
+                <div class="form-help">A confirmation link is sent to it. The sign-in email above does not need to be a real mailbox.</div>
+            </div>
+            @endif
 
             <div class="form-group">
                 <label for="role" class="form-label">Assign System Role <span class="required">*</span></label>

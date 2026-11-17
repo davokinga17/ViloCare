@@ -17,6 +17,9 @@ return new class extends Migration
             $table->foreignUuid('facility_id')->nullable()->after('role')->constrained('facilities')->nullOnDelete();
             $table->foreignUuid('testing_laboratory_id')->nullable()->after('facility_id')->constrained('testing_laboratories')->nullOnDelete();
         });
+
+        // Existing user rows are unchanged on the server, so the pull cursor would skip them: re-pull once.
+        (new \App\Services\SyncStateStore())->requestFullRepullIfPulledBefore('users: facility_id, testing_laboratory_id added');
     }
 
     public function down(): void

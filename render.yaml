@@ -39,6 +39,22 @@ services:
       # Shared secret clinics send as X-Sync-Token. Required: with no value the sync API answers 503.
       - key: VILOCARE_SYNC_API_TOKEN
         sync: false
+      # Email for password reset and recovery-email confirmation (optional). Without MAIL_MAILER=smtp nothing is sent.
+      # Enter these by hand in the Render Environment tab; the password is never written in this file or in git.
+      - key: MAIL_MAILER
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: MAIL_FROM_NAME
+        sync: false
       # AI insights (optional): without a key the AI features stay off.
       - key: AI_PROVIDER
         sync: false

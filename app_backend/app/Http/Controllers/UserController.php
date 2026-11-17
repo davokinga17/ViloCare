@@ -7,6 +7,8 @@ use App\Models\AuditLog;
 use App\Models\Facility;
 use App\Models\TestingLaboratory;
 use App\Services\AccessScope;
+use App\Services\AccountMailer;
+use App\Support\RecoveryEmail;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,6 +55,8 @@ class UserController extends Controller
             'users' => $users,
             'roles' => UserRole::cases(),
             'currentUser' => $currentUser,
+            // Shown to administrators on the central server when no real mail server is set up.
+            'mailNotConfigured' => $currentUser->isAdmin() && app(AccountMailer::class)->isCentral() && ! app(AccountMailer::class)->isConfigured(),
             // Administrators are warned about staff who would see no data until a facility is assigned.
             'unassigned' => $currentUser->isAdmin()
                 ? User::where('is_active', true)->where('role', '!=', UserRole::ADMINISTRATOR->value)
@@ -129,7 +133,14 @@ class UserController extends Controller
 
         return view('users.create', [
             'assignableRoles' => $assignableRoles,
+            'canInvite' => $this->canInvite($currentUser),
         ] + $this->assignmentChoices($currentUser));
+    }
+
+    /** Inviting by email needs an administrator, the central server and a working mail setup. */
+    private function canInvite(User $actor): bool
+    {
+        return $actor->isAdmin() && app(AccountMailer::class)->isConfigured();
     }
 
     public function store(Request $request): RedirectResponse
@@ -144,7 +155,18 @@ class UserController extends Controller
             'phone' => ['nullable', 'string', 'max:20'],
             'role' => ['required', 'string', Rule::in($allowedRoles)],
             'temporary_password' => ['nullable', 'string', 'min:8'],
+            'recovery_email' => RecoveryEmail::rules(),
+            'access_mode' => ['nullable', Rule::in(['invite', 'temporary'])],
         ]);
+
+        // Real personal email -> invitation; no real email -> placeholder login with a temporary password.
+        $invite = ($validated['access_mode'] ?? 'temporary') === 'invite';
+        if ($invite) {
+            if (! $this->canInvite($currentUser)) {
+                throw ValidationException::withMessages(['access_mode' => 'Invitations by email are not available here (central server with email configured, administrators only). Use a temporary password instead.']);
+            }
+            validator(['recovery_email' => $validated['email']], ['recovery_email' => RecoveryEmail::rules()])->validate();
+        }
 
         [$facilityId, $labId] = $this->assignment($request, $currentUser, UserRole::from($validated['role']));
 
@@ -157,8 +179,10 @@ class UserController extends Controller
             'role' => UserRole::from($validated['role']),
             'facility_id' => $facilityId,
             'testing_laboratory_id' => $labId,
-            'password' => Hash::make($tempPassword),
-            'cached_password_hash' => Hash::make($tempPassword),
+            // An invited user sets their own password from the link; until then the stored one is unguessable.
+            'password' => Hash::make($invite ? Str::random(48) : $tempPassword),
+            'cached_password_hash' => Hash::make($invite ? Str::random(48) : $tempPassword),
+            'recovery_email' => $invite ? $validated['email'] : null,
             'must_change_password' => true,
             'is_active' => true,
             'created_by' => $currentUser->id,
@@ -175,8 +199,21 @@ class UserController extends Controller
             userId: $currentUser->id
         );
 
+        if ($invite) {
+            $sent = app(AccountMailer::class)->sendInvite($user->refresh(), $request->ip());
+
+            return redirect()->route('users.index')->with($sent ? 'success' : 'error', $sent
+                ? "Invitation sent to '{$user->email}'. They set their own password from the link (valid for 7 days). No temporary password was created."
+                : "Account for '{$user->name}' created, but the invitation email could not be sent. Use 'Resend invite' on the Users page, or 'Reset Pass' to give a temporary password.");
+        }
+
+        $recoveryNote = '';
+        if ($currentUser->isAdmin() && ! empty($validated['recovery_email'])) {
+            $recoveryNote = ' '.RecoveryEmail::message(RecoveryEmail::change($user, $validated['recovery_email'], $currentUser->id, $request->ip()));
+        }
+
         return redirect()->route('users.index')
-            ->with('success', "Staff account for '{$user->name}' created successfully! Temporary password: '{$tempPassword}' (User will be required to change it upon first login).");
+            ->with('success', "Staff account for '{$user->name}' created successfully! Temporary password: '{$tempPassword}' (User will be required to change it upon first login).".$recoveryNote);
     }
 
     public function edit(User $user): View|RedirectResponse
@@ -211,7 +248,10 @@ class UserController extends Controller
             'phone' => ['nullable', 'string', 'max:20'],
             'role' => ['required', 'string', Rule::in($allowedRoles)],
             'is_active' => ['required', 'boolean'],
+            'recovery_email' => RecoveryEmail::rules($user->id),
         ]);
+        $recoveryEmail = $validated['recovery_email'] ?? null;
+        unset($validated['recovery_email']); // handled below, and kept out of the audit log
 
         [$facilityId, $labId] = $this->assignment($request, $currentUser, UserRole::from($validated['role']));
 
@@ -245,8 +285,50 @@ class UserController extends Controller
             userId: $currentUser->id
         );
 
+        $recoveryNote = '';
+        if ($currentUser->isAdmin() && $request->has('recovery_email')) {
+            $state = RecoveryEmail::change($user->refresh(), $recoveryEmail, $currentUser->id, $request->ip());
+            $recoveryNote = $state === 'unchanged' ? '' : ' '.RecoveryEmail::message($state);
+        }
+
         return redirect()->route('users.index')
-            ->with('success', "Staff account for '{$user->name}' updated successfully.");
+            ->with('success', "Staff account for '{$user->name}' updated successfully.".$recoveryNote);
+    }
+
+    /** Administrators: send the recovery-email confirmation link again (central server only). */
+    public function resendVerification(Request $request, User $user): RedirectResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = auth()->user();
+
+        if (! $currentUser->isAdmin() || ! $currentUser->canManageUser($user)) {
+            abort(403, 'Only administrators can resend a verification email.');
+        }
+
+        $mailer = app(AccountMailer::class);
+
+        if (! $user->recovery_email) {
+            return back()->with('error', 'This user has no recovery email.');
+        }
+        if ($user->recovery_email_verified_at) {
+            return back()->with('success', 'This recovery email is already verified.');
+        }
+        if (! $mailer->isCentral()) {
+            return back()->with('warning', 'Email is sent from the central server. The confirmation is sent when this computer syncs with it, or resend it from the website.');
+        }
+        if (! $mailer->isConfigured()) {
+            return back()->with('error', 'Email is not configured on the server.');
+        }
+
+        if ($user->isPendingInvite()) {
+            return $mailer->sendInvite($user, $request->ip())
+                ? back()->with('success', 'Invitation sent again.')
+                : back()->with('error', 'The invitation could not be sent. Check the mail settings.');
+        }
+
+        return $mailer->sendVerification($user, $request->ip())
+            ? back()->with('success', 'Verification email sent.')
+            : back()->with('error', 'The verification email could not be sent. Check the mail settings.');
     }
 
     public function resetPassword(Request $request, User $user): RedirectResponse

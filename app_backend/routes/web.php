@@ -4,8 +4,12 @@ use App\Http\Controllers\AiInsightController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AppUpdateController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\InviteController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordChangeController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EacController;
 use App\Http\Controllers\IntegrationSettingsController;
@@ -34,6 +38,17 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [LoginController::class, 'login']);
 });
 
+// Password reset and recovery-email verification. Public (the user is signed out) and usable while signed in.
+// On a clinic computer these pages only explain that the website must be used; the central server does the work.
+Route::get('/password/forgot', [ForgotPasswordController::class, 'show'])->name('password.request');
+Route::post('/password/forgot', [ForgotPasswordController::class, 'send'])->middleware('throttle:60,1')->name('password.email');
+Route::get('/password/reset/{token}', [ResetPasswordController::class, 'show'])->middleware('throttle:30,1')->name('password.reset');
+Route::post('/password/reset/{token}', [ResetPasswordController::class, 'update'])->middleware('throttle:30,1')->name('password.reset.update');
+Route::get('/invite/{token}', [InviteController::class, 'show'])->middleware('throttle:30,1')->name('invite.accept');
+Route::post('/invite/{token}', [InviteController::class, 'accept'])->middleware('throttle:30,1')->name('invite.accept.store');
+Route::get('/email/verify/{token}', [EmailVerificationController::class, 'show'])->middleware('throttle:30,1')->name('email.verify');
+Route::post('/email/verify/{token}', [EmailVerificationController::class, 'confirm'])->middleware('throttle:30,1')->name('email.verify.confirm');
+
 // Authenticated Routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -51,6 +66,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
         Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+        Route::put('/profile/recovery-email', [ProfileController::class, 'updateRecoveryEmail'])->name('profile.recovery-email');
 
         // Patient Management (Admin, Clinician, Data Clerk)
         Route::middleware('role:administrator,clinician,data_clerk')->group(function () {
@@ -93,6 +109,7 @@ Route::middleware('auth')->group(function () {
         Route::middleware('role:administrator,clinician')->group(function () {
             Route::resource('users', UserController::class)->except(['show']);
             Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+            Route::post('/users/{user}/resend-verification', [UserController::class, 'resendVerification'])->name('users.resend-verification');
         });
 
         // Sample Management (Admin, Clinician, Lab Technician, Data Clerk)
@@ -147,6 +164,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/sync/status-check', [SyncController::class, 'statusCheck'])->name('sync.status-check');
         // Conflict history holds raw record payloads (patient data from every facility): administrators only.
         Route::middleware('role:administrator')->group(function () {
+            Route::post('/sync/repull', [SyncController::class, 'repullEverything'])->name('sync.repull');
             Route::get('/sync/conflicts', [SyncController::class, 'conflicts'])->name('sync.conflicts');
             Route::post('/sync/conflicts/{conflict}/resolve', [SyncController::class, 'resolveConflict'])->name('sync.conflicts.resolve');
         });

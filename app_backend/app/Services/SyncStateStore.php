@@ -75,6 +75,46 @@ class SyncStateStore
     }
 
     /**
+     * Asks for the next pull to start from scratch. Migrations that add columns to (or create) a synced table
+     * call this: rows already pulled never change on the server, so the pull cursor would skip them and the
+     * new fields would never arrive. Pulling is idempotent, so a one-time full re-pull is always safe.
+     */
+    public function requestFullRepull(string $reason): void
+    {
+        $this->put('needs_full_repull', $reason);
+    }
+
+    /**
+     * What migrations call after adding columns to / creating a synced table. A computer that has never
+     * pulled (fresh install) has nothing to skip, so it needs no flag.
+     */
+    public function requestFullRepullIfPulledBefore(string $reason): void
+    {
+        if ($this->get('pull_cursor') !== null || $this->get('pull_progress') !== null) {
+            $this->requestFullRepull($reason);
+        }
+    }
+
+    public function needsFullRepull(): bool
+    {
+        return $this->get('needs_full_repull') !== null;
+    }
+
+    /**
+     * Returns true exactly once per request: the caller must then re-pull everything.
+     */
+    public function consumeFullRepullRequest(): bool
+    {
+        if (! $this->needsFullRepull()) {
+            return false;
+        }
+
+        $this->forget('needs_full_repull');
+
+        return true;
+    }
+
+    /**
      * Records that a sync run (scheduler, browser timer or manual) actually started.
      */
     public function touchHeartbeat(): void

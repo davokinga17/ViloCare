@@ -16,6 +16,12 @@ return [
     'clinic_name' => env('VILOCARE_CLINIC_NAME'),
 
     /*
+    | Forgot-password requests all take at least this long to answer (milliseconds), so the time taken does not
+    | reveal whether an account exists.
+    */
+    'reset_min_response_ms' => (int) env('VILOCARE_RESET_MIN_RESPONSE_MS', 600),
+
+    /*
     | EAC schedule (confirmed by the client). All values are whole days.
     |  first_session_delay_days: session 1 = high viral load result date + this (0 = same day).
     |  session_gap_days:         session 2 = session 1 date + this; session 3 = session 2 date + this.

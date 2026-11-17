@@ -78,6 +78,42 @@
         </div>
     </div>
 
+    <!-- Recovery Email Card -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Recovery Email</h2>
+        </div>
+        <div class="card-body">
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">
+                Used only to reset your password if you forget it. Use a real mailbox you can open; your sign-in email may not be one.
+            </p>
+            @if($user->recovery_email)
+                <p style="margin-bottom: 12px;">
+                    <strong>{{ $user->recovery_email }}</strong>
+                    @if($user->recovery_email_verified_at)
+                        <span class="badge badge-success">Verified</span>
+                    @else
+                        <span class="badge badge-warning">Not verified yet</span>
+                    @endif
+                </p>
+            @endif
+            <form method="POST" action="{{ route('profile.recovery-email') }}">
+                @csrf
+                @method('PUT')
+                <div class="form-group">
+                    <label for="recovery_email" class="form-label">Recovery email address</label>
+                    <input type="email" id="recovery_email" name="recovery_email" value="{{ old('recovery_email', $user->recovery_email) }}" class="form-control" maxlength="255" autocomplete="email">
+                    <div class="form-help">Leave empty to remove it. A new address must be confirmed with the link we email to it.</div>
+                </div>
+                <div class="form-group">
+                    <label for="recovery_current_password" class="form-label">Current Password <span class="required">*</span></label>
+                    <input type="password" id="recovery_current_password" name="current_password" required class="form-control">
+                </div>
+                <button type="submit" class="btn btn-secondary" style="margin-top: 8px;">Save Recovery Email</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Change Password Card -->
     <div class="card">
         <div class="card-header">
@@ -115,6 +151,7 @@
 @endsection
 
 @push('scripts')
+@include('partials.password-toggle')
 <script src="{{ \App\Support\AssetVersion::url('js/camera-capture.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {

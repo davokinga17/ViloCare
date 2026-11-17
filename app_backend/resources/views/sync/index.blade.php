@@ -24,6 +24,15 @@
                 <span>🔄</span> Run Full Sync Now
             </button>
         </form>
+        @if(auth()->user()->isAdmin())
+        <form method="POST" action="{{ route('sync.repull') }}" style="display: inline;"
+              onsubmit="return confirm('Download every record from the central server again? This is safe but can take a while.');">
+            @csrf
+            <button type="submit" class="btn btn-secondary" id="btn-repull-everything">
+                <span>⬇️</span> Re-pull everything
+            </button>
+        </form>
+        @endif
         @endunless
     </div>
 </div>

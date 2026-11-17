@@ -25,6 +25,8 @@ class User extends Authenticatable
         'id',
         'name',
         'email',
+        'recovery_email',
+        'recovery_email_verified_at',
         'phone',
         'role',
         'facility_id',
@@ -55,10 +57,27 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    /** Created by an invitation that has not been accepted yet (login email = recovery email, still unverified). */
+    public function isPendingInvite(): bool
+    {
+        return $this->must_change_password
+            && $this->recovery_email !== null
+            && $this->recovery_email_verified_at === null
+            && mb_strtolower((string) $this->email) === $this->recovery_email;
+    }
+
+    /** Recovery emails are stored trimmed and lower-case, so lookups and the unique index never depend on case. */
+    public function setRecoveryEmailAttribute(?string $value): void
+    {
+        $value = $value === null ? null : mb_strtolower(trim($value));
+        $this->attributes['recovery_email'] = $value === '' ? null : $value;
+    }
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'recovery_email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
             'must_change_password' => 'boolean',

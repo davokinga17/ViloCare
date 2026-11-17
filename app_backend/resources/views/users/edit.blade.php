@@ -41,6 +41,19 @@
                 </div>
             </div>
 
+            @if(auth()->user()->isAdmin())
+            <div class="form-group">
+                <label for="recovery_email" class="form-label">Recovery Email (for password reset)</label>
+                <input type="email" id="recovery_email" name="recovery_email" value="{{ old('recovery_email', $user->recovery_email) }}" class="form-control" maxlength="255" placeholder="a real mailbox the person can open">
+                <div class="form-help">
+                    @if($user->recovery_email)
+                        Status: {{ $user->recovery_email_verified_at ? 'verified' : 'not verified yet' }}.
+                    @endif
+                    Changing it sends a new confirmation link. Leave empty for none.
+                </div>
+            </div>
+            @endif
+
             <div class="form-grid">
                 <div class="form-group">
                     <label for="role" class="form-label">Role <span class="required">*</span></label>

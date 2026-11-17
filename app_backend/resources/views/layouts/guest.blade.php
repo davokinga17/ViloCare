@@ -17,6 +17,7 @@
 </head>
 <body class="@yield('body-class', 'login-page')">
     @yield('content')
+    @include("partials.password-toggle")
     @stack('scripts')
 </body>
 </html>

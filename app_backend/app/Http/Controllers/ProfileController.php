@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Support\RecoveryEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rules\Password;
+use App\Support\PasswordRules;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
@@ -60,6 +61,26 @@ class ProfileController extends Controller
         return redirect()->route('profile.show')->with('success', 'Profile updated successfully.');
     }
 
+    /** Sets or changes the user's own recovery email (asks for the current password). */
+    public function updateRecoveryEmail(Request $request): RedirectResponse
+    {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'recovery_email' => RecoveryEmail::rules($user->id),
+        ]);
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return back()->withErrors(['current_password' => 'Current password does not match.']);
+        }
+
+        $state = RecoveryEmail::change($user, $validated['recovery_email'] ?? null, $user->id, $request->ip());
+
+        return redirect()->route('profile.show')->with('success', RecoveryEmail::message($state));
+    }
+
     public function updatePassword(Request $request): RedirectResponse
     {
         /** @var \App\Models\User $user */
@@ -67,7 +88,7 @@ class ProfileController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ['required', 'string', 'confirmed', PasswordRules::rule()],
         ]);
 
         if (!Hash::check($validated['current_password'], $user->password)) {
